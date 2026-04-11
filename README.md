@@ -10,13 +10,13 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 |------|--------|
 | Project scaffold | done |
 | Backend (FastAPI) | done |
-| Frontend (Angular) | scaffolded |
+| Frontend (Angular) | done |
 | Overpass API integration | done |
 | PDF + web scanner | done |
 | File-based cache (1 week) | done |
-| Angular UI | next |
-| Deploy frontend (Vercel) | todo |
-| Deploy backend (Render) | todo |
+| Angular UI | done |
+| Deploy frontend (Vercel) | next |
+| Deploy backend (Render) | next |
 
 ---
 
@@ -50,7 +50,12 @@ sprout-scout/
 │       └── cache.py             # File-based cache with 1-week TTL
 └── frontend/
     └── src/
-        └── app/                 # Angular app (UI to be built)
+        └── app/
+            ├── components/
+            │   ├── search/              # Zip code input + restaurant list
+            │   └── restaurant-card/     # Expandable card with vegan dish list
+            └── services/
+                └── restaurant.ts        # HTTP calls to FastAPI backend
 ```
 
 ---
@@ -92,10 +97,7 @@ ng serve
 
 ## Next Steps
 
-- [ ] Build Angular UI
-  - [ ] Zip code input form (4-digit, Austria only)
-  - [ ] Restaurant card list
-  - [ ] Click card to show vegan dishes with confidence scores
+- [ ] Test locally (start backend + frontend, try a real Austrian zip code)
 - [ ] Deploy backend to Render
 - [ ] Deploy frontend to Vercel
 
