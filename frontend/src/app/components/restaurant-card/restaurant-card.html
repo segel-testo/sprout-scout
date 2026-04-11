@@ -1,0 +1,38 @@
+<div class="card" (click)="toggle()">
+  <div class="card-header">
+    <div class="card-info">
+      <h3>{{ restaurant.name }}</h3>
+      <p class="address">{{ restaurant.address }}</p>
+      @if (restaurant.phone) {
+        <p class="phone">{{ restaurant.phone }}</p>
+      }
+    </div>
+    <span class="chevron" [class.open]="expanded()">&#9660;</span>
+  </div>
+
+  @if (expanded()) {
+    <div class="card-body" (click)="$event.stopPropagation()">
+      @if (loading()) {
+        <p class="scanning">Scanning menus...</p>
+      } @else if (dishes().length === 0) {
+        <p class="no-dishes">No vegan dishes found.</p>
+      } @else {
+        <ul class="dish-list">
+          @for (dish of dishes(); track dish.name) {
+            <li class="dish">
+              <span class="dish-name">{{ dish.name }}</span>
+              <span class="confidence {{ confidenceLabel(dish.confidence) }}">
+                {{ (dish.confidence * 100).toFixed(0) }}% vegan
+              </span>
+            </li>
+          }
+        </ul>
+      }
+      @if (restaurant.website) {
+        <a class="website-link" [href]="restaurant.website" target="_blank" rel="noopener">
+          Visit website
+        </a>
+      }
+    </div>
+  }
+</div>

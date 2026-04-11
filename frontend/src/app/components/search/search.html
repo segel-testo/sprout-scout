@@ -1,0 +1,32 @@
+<div class="search-page">
+  <header>
+    <h1>Sprout Scout</h1>
+    <p>Find vegan dishes at restaurants near you</p>
+  </header>
+
+  <div class="search-box">
+    <input
+      type="text"
+      [(ngModel)]="zipCode"
+      placeholder="Enter zip code (e.g. 1010)"
+      maxlength="4"
+      (keyup.enter)="search()"
+    />
+    <select disabled title="More countries coming soon">
+      <option value="AT">Austria</option>
+    </select>
+    <button (click)="search()" [disabled]="loading()">
+      {{ loading() ? 'Searching...' : 'Search' }}
+    </button>
+  </div>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <div class="results">
+    @for (restaurant of restaurants(); track restaurant.id) {
+      <app-restaurant-card [restaurant]="restaurant" />
+    }
+  </div>
+</div>

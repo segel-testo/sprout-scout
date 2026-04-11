@@ -1,0 +1,101 @@
+.card {
+  background: #fff;
+  border: 1px solid #dceedd;
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: 0 4px 16px rgba(45, 122, 58, 0.12);
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.card-info {
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .address, .phone {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 4px;
+  }
+}
+
+.chevron {
+  font-size: 0.8rem;
+  color: #888;
+  transition: transform 0.2s;
+
+  &.open {
+    transform: rotate(180deg);
+  }
+}
+
+.card-body {
+  margin-top: 16px;
+  border-top: 1px solid #eef5ec;
+  padding-top: 16px;
+  cursor: default;
+}
+
+.scanning, .no-dishes {
+  color: #888;
+  font-size: 0.95rem;
+}
+
+.dish-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dish {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f8fbf7;
+  border-radius: 8px;
+  font-size: 0.9rem;
+
+  .dish-name {
+    flex: 1;
+    color: #1a1a1a;
+    margin-right: 12px;
+  }
+
+  .confidence {
+    font-weight: 600;
+    font-size: 0.85rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    white-space: nowrap;
+
+    &.high   { background: #d4edda; color: #155724; }
+    &.medium { background: #fff3cd; color: #856404; }
+    &.low    { background: #f8d7da; color: #721c24; }
+  }
+}
+
+.website-link {
+  display: inline-block;
+  margin-top: 12px;
+  font-size: 0.9rem;
+  color: #2d7a3a;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
