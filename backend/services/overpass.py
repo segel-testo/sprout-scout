@@ -10,7 +10,11 @@ async def fetch_restaurants(zip_code: str) -> list[dict]:
     nwr["amenity"="restaurant"]["addr:postcode"="{zip_code}"](area.country);
     out body;
     """
-    async with httpx.AsyncClient(timeout=30) as client:
+    headers = {
+        "User-Agent": "SproutScout/0.1 (https://github.com/valroeck/sprout-scout)",
+        "Accept": "application/json",
+    }
+    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
         response = await client.post(OVERPASS_URL, data={"data": query})
         response.raise_for_status()
         data = response.json()
@@ -20,10 +24,12 @@ async def fetch_restaurants(zip_code: str) -> list[dict]:
         tags = element.get("tags", {})
         restaurants.append({
             "id": str(element["id"]),
+            "osm_type": element.get("type", "node"),
             "name": tags.get("name", "Unknown"),
             "address": _build_address(tags),
             "website": tags.get("website") or tags.get("contact:website", ""),
             "phone": tags.get("phone") or tags.get("contact:phone", ""),
+            "osm_diet_vegan": tags.get("diet:vegan") or None,
         })
 
     return restaurants

@@ -3,7 +3,6 @@
   border: 1px solid #dceedd;
   border-radius: 12px;
   padding: 20px;
-  cursor: pointer;
   transition: box-shadow 0.2s;
 
   &:hover {
@@ -15,6 +14,14 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  cursor: pointer;
+}
+
+.diet-hint {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #2d7a3a;
+  font-weight: 500;
 }
 
 .card-info {
@@ -97,5 +104,52 @@
 
   &:hover {
     text-decoration: underline;
+  }
+}
+
+.delivery-link {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 10px 16px;
+  background: #2d7a3a;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background 0.2s;
+
+  &:hover {
+    background: #245f2e;
+  }
+}
+
+.fallback {
+  margin-top: 12px;
+  padding: 12px;
+  background: #f8fbf7;
+  border-radius: 8px;
+
+  .fallback-title {
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 8px;
+  }
+
+  .fallback-links {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    a {
+      color: #2d7a3a;
+      text-decoration: none;
+      font-size: 0.9rem;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
   }
 }

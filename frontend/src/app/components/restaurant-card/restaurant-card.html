@@ -1,37 +1,62 @@
-<div class="card" (click)="toggle()">
-  <div class="card-header">
+<div class="card">
+  <div class="card-header" (click)="toggle()">
     <div class="card-info">
       <h3>{{ restaurant.name }}</h3>
       <p class="address">{{ restaurant.address }}</p>
       @if (restaurant.phone) {
         <p class="phone">{{ restaurant.phone }}</p>
       }
+      @if (dietHintLabel(scan()?.osm_diet_vegan ?? restaurant.osm_diet_vegan); as hint) {
+        <p class="diet-hint">{{ hint }}</p>
+      }
     </div>
     <span class="chevron" [class.open]="expanded()">&#9660;</span>
   </div>
 
   @if (expanded()) {
-    <div class="card-body" (click)="$event.stopPropagation()">
+    <div class="card-body">
       @if (loading()) {
         <p class="scanning">Scanning menus...</p>
-      } @else if (dishes().length === 0) {
-        <p class="no-dishes">No vegan dishes found.</p>
-      } @else {
-        <ul class="dish-list">
-          @for (dish of dishes(); track dish.name) {
-            <li class="dish">
-              <span class="dish-name">{{ dish.name }}</span>
-              <span class="confidence {{ confidenceLabel(dish.confidence) }}">
-                {{ (dish.confidence * 100).toFixed(0) }}% vegan
-              </span>
-            </li>
-          }
-        </ul>
-      }
-      @if (restaurant.website) {
-        <a class="website-link" [href]="restaurant.website" target="_blank" rel="noopener">
-          Visit website
-        </a>
+      } @else if (scan()) {
+        @if (scan()!.dishes.length > 0) {
+          <ul class="dish-list">
+            @for (dish of scan()!.dishes; track dish.name) {
+              <li class="dish">
+                <span class="dish-name">{{ dish.name }}</span>
+                <span class="confidence {{ confidenceLabel(dish.confidence) }}">
+                  {{ (dish.confidence * 100).toFixed(0) }}% vegan
+                </span>
+              </li>
+            }
+          </ul>
+        } @else if (scan()!.delivery_link) {
+          <p class="no-dishes">Menu is on a delivery platform — check it directly:</p>
+        } @else {
+          <p class="no-dishes">No vegan dishes found on this menu.</p>
+        }
+
+        @if (scan()!.delivery_link; as dl) {
+          <a class="delivery-link" [href]="dl.url" target="_blank" rel="noopener">
+            {{ dl.label }} →
+          </a>
+        }
+
+        @if (scan()!.no_menu && scan()!.fallback_links && scan()!.fallback_links!.length > 0) {
+          <div class="fallback">
+            <p class="fallback-title">No online menu found. Try these:</p>
+            <ul class="fallback-links">
+              @for (link of scan()!.fallback_links!; track link.url) {
+                <li>
+                  <a [href]="link.url" target="_blank" rel="noopener">{{ link.label }}</a>
+                </li>
+              }
+            </ul>
+          </div>
+        } @else if (restaurant.website) {
+          <a class="website-link" [href]="restaurant.website" target="_blank" rel="noopener">
+            Visit website
+          </a>
+        }
       }
     </div>
   }

@@ -20,13 +20,40 @@
     </button>
   </div>
 
+  <div class="mode-row">
+    <button class="mode-toggle" (click)="toggleMode()" [disabled]="loading()">
+      <span class="mode-label">Mode:</span>
+      <span class="mode-value" [class.active]="mode() === 'auto-scan'">
+        {{ mode() === 'auto-scan' ? 'Auto-scan all' : 'Show all, scan on click' }}
+      </span>
+    </button>
+    <span class="mode-hint">
+      {{ mode() === 'auto-scan'
+          ? 'Scans every menu and shows only vegan hits.'
+          : 'Lists every restaurant; click a card to scan its menu.' }}
+    </span>
+  </div>
+
+  @if (loading() && scanProgress(); as p) {
+    <div class="scan-progress">
+      <span class="spinner"></span>
+      <span>Scanning {{ p.scanned }} / {{ p.total }} restaurants...</span>
+      @if (scanCapped()) {
+        <span class="cap-note">(limited to first {{ p.total }})</span>
+      }
+    </div>
+  }
+
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
   <div class="results">
-    @for (restaurant of restaurants(); track restaurant.id) {
-      <app-restaurant-card [restaurant]="restaurant" />
+    @for (item of items(); track item.restaurant.id) {
+      <app-restaurant-card
+        [restaurant]="item.restaurant"
+        [prescan]="item.scan ?? null"
+      />
     }
   </div>
 </div>

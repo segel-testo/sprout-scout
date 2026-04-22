@@ -1,0 +1,5 @@
+https://www.zen-restaurant.at/: "Online bestellen" links to foodora. There is no menu directly accessible on the website
+https://akakiko.at/lieferservice#veggie: openstreetmap restaurant entry leads to franchise main website. Menu is visible there with keywords like "vegan"
+https://pages.resmio.com/pizzeria-ofenbarung/de/preview/modern: restaurant has no official menu and no delivery service linked on website. Can further research be done on google reviews or openstreetmap reviews, or do you have better ideas?
+https://www.misterbeans.at/Coffeeshop/Unser-Coffeeshop/: restaurant has no official menu and no delivery service available. It is a brunch place. I know they have vegan food. Can it be read from google reviews or some other place?
+https://www.bruderundschwester.com/speisekarte: Menu on that homepage is a pdf. It needs to be opened and read for more information. They definitely have vegan food in there. How can this be crawled?

@@ -1,4 +1,18 @@
-# Frontend
+# Sprout Scout — Frontend
+
+Angular 21 UI for [Sprout Scout](../README.md). Lets users search by Austrian zip code and see vegan dishes extracted from local restaurant menus.
+
+## What's in here
+
+- `src/app/components/search/` — Zip input, mode toggle (on-demand vs auto-scan), and the live scan counter. Subscribes to the backend SSE stream in auto-scan mode.
+- `src/app/components/restaurant-card/` — Renders three states per restaurant: dishes with confidence scores, a "View menu on foodora →" button when the menu lives on a delivery platform, or a fallback-links block (website / Google Maps / OSM) when no menu is online. Surfaces the OSM `diet:vegan` hint when present.
+- `src/app/services/restaurant.ts` — REST client for `/api/restaurants` and `/api/restaurants/{id}/vegan`, plus an Observable-wrapped `EventSource` for the SSE `/api/restaurants/scan` endpoint.
+
+The user-facing toggle is persisted to `localStorage` under `sprout-scout-mode`; default is **on-demand**.
+
+The backend must be running at `http://localhost:8000` (see the [main README](../README.md) for setup).
+
+---
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.2.
 

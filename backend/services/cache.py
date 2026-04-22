@@ -27,3 +27,11 @@ def get_cached(key: str):
 def set_cached(key: str, payload):
     path = _cache_path(key)
     path.write_text(json.dumps({"timestamp": time.time(), "payload": payload}))
+
+
+def get_namespaced(namespace: str, key: str):
+    return get_cached(f"{namespace}__{key}")
+
+
+def set_namespaced(namespace: str, key: str, payload):
+    set_cached(f"{namespace}__{key}", payload)

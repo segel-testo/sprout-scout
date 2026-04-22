@@ -72,6 +72,81 @@ header {
   }
 }
 
+.mode-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: #fff;
+  border: 2px solid #cde0c9;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+
+  &:hover:not(:disabled) {
+    border-color: #2d7a3a;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .mode-label {
+    color: #666;
+  }
+
+  .mode-value {
+    color: #555;
+    font-weight: 600;
+
+    &.active {
+      color: #2d7a3a;
+    }
+  }
+}
+
+.mode-hint {
+  color: #777;
+  font-size: 0.85rem;
+}
+
+.scan-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  color: #2d7a3a;
+  font-size: 0.95rem;
+
+  .cap-note {
+    color: #777;
+    font-size: 0.85rem;
+  }
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #cde0c9;
+  border-top-color: #2d7a3a;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .error {
   color: #c0392b;
   margin-bottom: 16px;
