@@ -72,54 +72,6 @@ header {
   }
 }
 
-.mode-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-}
-
-.mode-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: #fff;
-  border: 2px solid #cde0c9;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.9rem;
-  transition: border-color 0.2s;
-
-  &:hover:not(:disabled) {
-    border-color: #2d7a3a;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .mode-label {
-    color: #666;
-  }
-
-  .mode-value {
-    color: #555;
-    font-weight: 600;
-
-    &.active {
-      color: #2d7a3a;
-    }
-  }
-}
-
-.mode-hint {
-  color: #777;
-  font-size: 0.85rem;
-}
-
 .scan-progress {
   display: flex;
   align-items: center;

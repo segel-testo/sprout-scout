@@ -1,5 +1,10 @@
-import { Component, Input, OnChanges, signal } from '@angular/core';
-import { Restaurant, RestaurantService, ScanResult } from '../../services/restaurant';
+import { Component, Input } from '@angular/core';
+import { Restaurant, ScanResult } from '../../services/restaurant';
+
+interface PrimaryLink {
+  label: string;
+  url: string;
+}
 
 @Component({
   selector: 'app-restaurant-card',
@@ -7,55 +12,20 @@ import { Restaurant, RestaurantService, ScanResult } from '../../services/restau
   templateUrl: './restaurant-card.html',
   styleUrl: './restaurant-card.scss',
 })
-export class RestaurantCard implements OnChanges {
+export class RestaurantCard {
   @Input() restaurant!: Restaurant;
-  @Input() prescan: ScanResult | null = null;
+  @Input() scan!: ScanResult;
 
-  expanded = signal(false);
-  scan = signal<ScanResult | null>(null);
-  loading = signal(false);
-  scanned = signal(false);
-
-  constructor(private restaurantService: RestaurantService) {}
-
-  ngOnChanges(): void {
-    if (this.prescan) {
-      this.scan.set(this.prescan);
-      this.scanned.set(true);
-      this.expanded.set(true);
+  get primaryLink(): PrimaryLink {
+    const dl = this.scan?.delivery_link;
+    if (dl) return { label: dl.label, url: dl.url };
+    if (this.restaurant.website) {
+      return { label: 'Visit website', url: this.restaurant.website };
     }
-  }
-
-  toggle() {
-    this.expanded.set(!this.expanded());
-    if (this.expanded() && !this.scanned()) {
-      this.loading.set(true);
-      this.restaurantService.getVeganDishes(this.restaurant).subscribe({
-        next: (res) => {
-          this.scan.set(res);
-          this.loading.set(false);
-          this.scanned.set(true);
-        },
-        error: () => {
-          this.loading.set(false);
-          this.scanned.set(true);
-        },
-      });
-    }
-  }
-
-  confidenceLabel(score: number): string {
-    if (score >= 0.8) return 'high';
-    if (score >= 0.6) return 'medium';
-    return 'low';
-  }
-
-  dietHintLabel(hint: string | null | undefined): string | null {
-    switch (hint) {
-      case 'only': return 'OpenStreetMap: fully vegan restaurant';
-      case 'yes': return 'OpenStreetMap: has vegan options';
-      case 'limited': return 'OpenStreetMap: limited vegan options';
-      default: return null;
-    }
+    const query = encodeURIComponent(`${this.restaurant.name} ${this.restaurant.address}`.trim());
+    return {
+      label: 'Find on Google Maps',
+      url: `https://www.google.com/maps/search/?api=1&query=${query}`,
+    };
   }
 }
