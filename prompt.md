@@ -10,7 +10,6 @@ You are continuing work on **Sprout Scout** at `C:\Vali\coding\sprout-scout`. It
 
 1. `README.md` — full architecture, API contract, design decisions. Authoritative.
 2. `todos.md` — the live work plan. Items 1–4 and 6 are done; 5 and 7 are pending. **Read this even if you think you remember the state — it's the source of truth.**
-3. `plan.md` (if present) — older full implementation plan, mostly historical now.
 
 Skim, don't memorize. The code is the truth.
 

@@ -60,7 +60,6 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 
 ```
 sprout-scout/
-├── plan.md                            # Full implementation plan
 ├── url-collection.txt                 # Example URLs used for integration tests
 ├── backend/
 │   ├── main.py                        # FastAPI entry
