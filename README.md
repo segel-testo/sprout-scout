@@ -11,14 +11,14 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Project scaffold | done |
 | Backend (FastAPI) | done |
 | Frontend (Angular) | done |
-| Overpass API integration | done |
-| Adapter-based scanner (generic + PDF) | done |
+| Overpass API integration (cafe + restaurant + fast_food + pub + bar + biergarten + food_court + ice_cream) | done |
+| Adapter-based scanner (generic + PDF + one-hop menu-link crawl) | done |
 | Vegan extractor (negation, legend tables, German + English) | done |
 | Delivery-platform link-out (foodora / mjam / lieferando) | done |
 | No-menu fallback (Google Maps + OSM links, `diet:vegan` hint) | done |
 | File-based cache (restaurant list + scan results, 1 week) | done |
 | SSE bulk-scan endpoint | done |
-| Angular UI with on-demand / auto-scan toggle | done |
+| Angular UI (single auto-scan flow) | done |
 | Integration test against 5 real-world URLs | done |
 | Deploy frontend (Vercel) | next |
 | Deploy backend (Render) | next |
@@ -28,11 +28,12 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 ## How it works
 
 1. User enters a 4-digit Austrian zip code.
-2. Backend queries OpenStreetMap via Overpass for all restaurants in that zip.
-3. For each restaurant website, the **scanner orchestrator** tries adapters in order and stops on the first hit:
+2. Backend queries OpenStreetMap via Overpass for all food-serving venues in that zip — `restaurant`, `cafe`, `fast_food`, `pub`, `bar`, `biergarten`, `food_court`, `ice_cream`.
+3. For each website, the **scanner orchestrator** tries adapters in order and stops on the first hit:
    - **Foodora / mjam / lieferando** URLs → link out to the delivery platform (scraping these requires a headless browser; out of scope, so we surface the link instead).
    - **PDF adapter** → finds PDFs via `<a>`, `<iframe>`, `<object>`, `<embed>`, PDF.js viewer URLs, or `content-type: application/pdf`.
    - **Generic HTML adapter** → text extraction on the page.
+   - **One-hop menu-link crawl** *(fallback when both adapters return empty on the homepage)* — follows up to 4 same-host links whose path or text matches `menu|menü|menue|speisekarte|karte|produkte|gerichte|essen|food|drinks|getränke`, runs both adapters on each.
 4. All extracted text runs through the **vegan extractor**: German + English keyword matching with negation detection, two-pass legend parsing (e.g. `V = vegan` → `V` on a dish line), and "on request" downgrading.
 5. If nothing is found, a **no-menu fallback** payload is returned with links to the restaurant website, Google Maps, OSM, and the `diet:vegan` tag if present.
 6. Results are cached (1-week TTL, file-based) so repeat searches are near-instant.
@@ -82,8 +83,8 @@ sprout-scout/
 └── frontend/
     └── src/app/
         ├── components/
-        │   ├── search/                # Zip input, mode toggle, SSE subscription
-        │   └── restaurant-card/       # Dishes, delivery link, fallback links
+        │   ├── search/                # Zip input + SSE subscription
+        │   └── restaurant-card/       # Name, badge, address, phone, amenity tag, primary link
         └── services/
             └── restaurant.ts          # REST + SSE client
 ```
@@ -157,16 +158,9 @@ Health check.
 
 ## Frontend UX
 
-Two modes, toggleable in the search bar, persisted to `localStorage`:
+Single auto-scan flow: the search bar opens the SSE endpoint immediately, shows a spinner + `Scanning X / 30` counter, and reveals restaurants progressively as their scans come back positive. Zero-dish results are filtered out server-side. Empty-state message if nothing is found.
 
-- **Show all, scan on click** *(default)* — fast to first paint. Lists every restaurant; the card fetches its own scan on expand.
-- **Auto-scan all** — hits the SSE endpoint, shows a spinner + `Scanning X / 30` counter, and reveals restaurants progressively as their scans come back positive. Hides zero-dish results entirely. If nothing is found, shows an empty-state message.
-
-Restaurant cards handle three states:
-
-- Dishes found → rendered with per-dish confidence score.
-- Menu lives on a delivery platform → `View menu on foodora →` button.
-- No menu online → fallback-links block (website / Google Maps / OSM) and, if present, the OSM `diet:vegan` hint ("fully vegan restaurant" / "has vegan options" / "limited vegan options").
+Each restaurant card shows: name, "Vegan options found" badge, address, phone, an amenity tag in the top-right corner (Restaurant / Café / Pub / …), and a single primary-link button in the bottom-right. The button picks the best target available: delivery platform link → website → Google Maps search.
 
 ---
 
@@ -211,10 +205,11 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 ## Design Decisions
 
 - **Country restriction.** Austria only (4-digit zip, AT filter in Overpass).
+- **Discovery scope.** Overpass matches eight food-serving amenities (`restaurant`, `cafe`, `fast_food`, `pub`, `bar`, `biergarten`, `food_court`, `ice_cream`). Many small venues — including pure cafés that serve full lunch menus — are not tagged `restaurant`, so a `restaurant`-only filter under-covers a typical zip noticeably.
 - **Delivery platforms.** Foodora/mjam and Lieferando load menus via XHR behind auth — unreachable to anonymous `httpx`. Rather than add a headless browser, we detect their URLs (direct or linked from the homepage) and surface a "View menu on foodora →" button instead.
 - **Vegan detection.** Keyword-based (kept intentionally simple); `vegetarisch` is *not* a match since it's not vegan. Negation tokens (`kein`, `ohne`, `leider`, `no`, `without`) suppress matches. Two-pass legend parsing picks up symbol markers like `V = vegan` even when the legend lives elsewhere on the page. "Vegan on request" gets a 0.3 confidence instead of a full match.
+- **One-hop crawl, not a full crawler.** When the homepage yields nothing, the scanner follows up to 4 same-host links whose path/text matches obvious menu words and runs both adapters on each. Anything deeper (JS-rendered menus, interactive menu builders) is out of scope — no headless browser.
 - **PDF embedding.** Supports `<a href>`, `<iframe>`, `<object>`, `<embed>`, content-type sniffing for extension-less URLs, and PDF.js viewer query-param unwrapping.
 - **Caching.** File-based JSON in `backend/.cache/`, 1-week TTL. Restaurant lists cached by zip; scan results cached by `{restaurant_id}_{sha1(website)[:10]}` so the same URL doesn't re-scan on every search.
 - **SSE over WebSockets.** One-way stream, plain HTTP, browser-native `EventSource`. No extra dependency needed — FastAPI's `StreamingResponse` emits the `event:` / `data:` frames directly.
-- **Auto-scan default = off.** First-time visitors shouldn't kick off 8 concurrent requests to random small-business websites before any cache is warm. Users opt into auto-scan via the toggle, and their choice is remembered.
 - **No login required.** Public tool.

@@ -3,11 +3,15 @@ import httpx
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 
+FOOD_AMENITIES = ["restaurant", "cafe", "fast_food", "pub", "bar", "biergarten", "food_court", "ice_cream"]
+
+
 async def fetch_restaurants(zip_code: str) -> list[dict]:
+    amenity_regex = "|".join(FOOD_AMENITIES)
     query = f"""
     [out:json][timeout:25];
     area["ISO3166-1"="AT"]["admin_level"="2"]->.country;
-    nwr["amenity"="restaurant"]["addr:postcode"="{zip_code}"](area.country);
+    nwr["amenity"~"^({amenity_regex})$"]["addr:postcode"="{zip_code}"](area.country);
     out body;
     """
     headers = {
@@ -26,6 +30,7 @@ async def fetch_restaurants(zip_code: str) -> list[dict]:
             "id": str(element["id"]),
             "osm_type": element.get("type", "node"),
             "name": tags.get("name", "Unknown"),
+            "amenity": tags.get("amenity"),
             "address": _build_address(tags),
             "website": tags.get("website") or tags.get("contact:website", ""),
             "phone": tags.get("phone") or tags.get("contact:phone", ""),

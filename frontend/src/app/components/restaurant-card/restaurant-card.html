@@ -1,4 +1,7 @@
 <div class="card">
+  @if (amenityLabel) {
+    <span class="amenity-tag">{{ amenityLabel }}</span>
+  }
   <div class="card-info">
     <h3>{{ restaurant.name }}</h3>
     <span class="badge">Vegan options found</span>

@@ -1,17 +1,33 @@
 .card {
+  position: relative;
   background: #fff;
   border: 1px solid #dceedd;
   border-radius: 12px;
   padding: 20px;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 16px;
   transition: box-shadow 0.2s;
 
   &:hover {
     box-shadow: 0 4px 16px rgba(45, 122, 58, 0.12);
   }
+}
+
+.amenity-tag {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 2px 8px;
+  background: #eef5ef;
+  color: #2d7a3a;
+  border: 1px solid #cfe3d3;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .card-info {

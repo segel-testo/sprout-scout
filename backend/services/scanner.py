@@ -53,6 +53,7 @@ async def _dispatch(website: str, client: httpx.AsyncClient) -> tuple[list[dict]
     except Exception:
         return [], None
     html = response.text
+    final_url = str(response.url)
 
     delivery_link: dict | None = None
     if (link := foodora.find_foodora_link(html)):
@@ -60,11 +61,27 @@ async def _dispatch(website: str, client: httpx.AsyncClient) -> tuple[list[dict]
     elif (link := lieferando.find_lieferando_link(html)):
         delivery_link = _delivery_link("lieferando", link)
 
-    if (dishes := await pdf.scan(html, website, client)):
+    if (dishes := await pdf.scan(html, final_url, client)):
         return dishes, delivery_link
-    if (dishes := await generic.scan(html, website, client)):
+    if (dishes := await generic.scan(html, final_url, client)):
+        return dishes, delivery_link
+    if (dishes := await _crawl_menu_links(html, final_url, client)):
         return dishes, delivery_link
     return [], delivery_link
+
+
+async def _crawl_menu_links(html: str, base_url: str, client: httpx.AsyncClient) -> list[dict]:
+    dishes: list[dict] = []
+    for link in generic.find_menu_links(html, base_url):
+        try:
+            response = await client.get(link)
+            response.raise_for_status()
+        except Exception:
+            continue
+        sub_html = response.text
+        dishes += await pdf.scan(sub_html, link, client)
+        dishes += await generic.scan(sub_html, link, client)
+    return dishes
 
 
 def _delivery_link(platform: str, url: str) -> dict:

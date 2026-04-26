@@ -20,17 +20,13 @@ Build passes (`ng build --configuration development`).
 
 ---
 
-## 4. Bruderundschwester not appearing — investigate
+## ✅ 4. Bruderundschwester not appearing — DONE
 
-Integration test currently asserts dishes from `bruderundschwester.com/speisekarte`. Two hypotheses:
+Root cause: tagged `amenity=cafe` in OSM, but the Overpass query only matched `amenity=restaurant`. Discovery was filtering it out before the scanner ever saw it.
 
-1. **Test still passes** → backend finds dishes, frontend drops them. Likely cause: name/address mismatch between OSM and the website's domain, so the SSE stream never reaches this restaurant in zip 1010 (or wherever it lives). Check whether it appears in the Overpass result for its zip at all.
-2. **Test fails** → PDF extractor regression. Re-run `python -m tests.scan_examples`, inspect.
-
-Steps:
-- Run the integration test, capture output.
-- If pass: query Overpass for the actual zip, confirm the restaurant is in the response, confirm its `website` field matches the URL the scanner can hit.
-- If fail: bisect — does `pdf.py` find the PDF? Does `pdfplumber` extract text? Does `extractor.py` match "vegan"? Fix the broken stage.
+- `services/overpass.py`: query now matches `restaurant|cafe|fast_food|pub|bar|biergarten|food_court|ice_cream` via a regex on `amenity`. Also propagates the `amenity` field on each restaurant payload.
+- Verified: postcode 2340 went from 29 to 57 results; Bruder und Schwester (`node/1925290287`) now comes back with `website=http://www.bruderundschwester.com`.
+- The homepage doesn't contain vegan keywords directly, but the one-hop crawl from #6 follows `/speisekarte` and the PDF adapter pulls 7 vegan dishes.
 
 ## 5. zuminderhof.at — image-only PDF fallback
 
@@ -42,15 +38,13 @@ Steps:
 - Add a per-PDF timeout cap on the OCR path (e.g. 15s) so a 50-page scanned menu doesn't blow the 25s scan timeout for the whole restaurant.
 - Verify against `zuminderhof.at`: download the PDF, confirm `extract_text()` returns empty, confirm OCR finds "vegan".
 
-## 6. kennys.at — investigate first
+## ✅ 6. kennys.at — DONE
 
-Curl the homepage, locate how the menu is reached. Three plausible outcomes:
+Root cause: menu lives one click deep at `/produkte/` (and sub-pages); homepage's only "vegan" mentions are inside image filenames, which BeautifulSoup strips during text extraction.
 
-- **Static link the scanner missed** (e.g., menu page linked from a non-`<a>` element, or one click deeper than the generic adapter follows). Fix: extend generic adapter to follow obvious "menu" / "speisekarte" links one level.
-- **Same-origin XHR / JS-rendered**. Decision needed at that point — most likely: document as known limitation and add to the no_menu fallback path. Headless browser stays out.
-- **The menu IS reachable but extractor misses "KENNY'S VEGAN"** because of formatting (all-caps, apostrophe, line break splitting "VEGAN" from context). Tune the matcher.
-
-Don't pre-build any of this — investigate, then pick the narrowest fix.
+- `services/adapters/generic.py`: added `find_menu_links()` — same-host `<a>` candidates whose path or link text matches `menu|menü|menue|speisekarte|karte|produkte|gerichte|essen|food|drinks|getränke`, capped at 4.
+- `services/scanner.py`: `_dispatch` now uses the post-redirect URL as the base (`response.url`), and falls through to `_crawl_menu_links` only when both pdf and generic scans on the homepage return empty. Each candidate is run through both adapters.
+- Verified: `https://kennys.at/` now yields 8 vegan dishes via `/produkte/` and sub-pages. Same fix also rescues `bruderundschwester.com` from #4 (homepage → `/speisekarte` PDF → 7 dishes).
 
 ## 7. Cleanup pass (last)
 
@@ -64,7 +58,7 @@ After 4–6 land:
 
 ## Suggested order
 
-1. Investigate #4 and #6 (cheap, results may shrink other steps).
+1. ~~Investigate #4 and #6~~ — done.
 2. #5 OCR path (backend, isolated).
 3. #7 cleanup.
 
