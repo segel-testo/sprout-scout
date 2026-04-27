@@ -46,7 +46,30 @@ Root cause: menu lives one click deep at `/produkte/` (and sub-pages); homepage'
 - `services/scanner.py`: `_dispatch` now uses the post-redirect URL as the base (`response.url`), and falls through to `_crawl_menu_links` only when both pdf and generic scans on the homepage return empty. Each candidate is run through both adapters.
 - Verified: `https://kennys.at/` now yields 8 vegan dishes via `/produkte/` and sub-pages. Same fix also rescues `bruderundschwester.com` from #4 (homepage → `/speisekarte` PDF → 7 dishes).
 
-## 7. Cleanup pass (last)
+## ✅ 8. Lift the 30-restaurant scan cap — DONE
+
+Full-zip scan now in effect. Defensive ceiling of 500 (no realistic Austrian zip approaches this); for zips above that the existing `capped` flag still surfaces correctly in the `start` event.
+
+- `routers/restaurants.py`: `SCAN_RESTAURANT_CAP` raised to 500. New `SSE_KEEPALIVE_INTERVAL = 15`.
+- Replaced the `asyncio.as_completed` consumer with `asyncio.wait(timeout=SSE_KEEPALIVE_INTERVAL, return_when=FIRST_COMPLETED)` in a loop. When 15s elapse with no scan completing, the stream emits `:keepalive\n\n` (an SSE comment — browsers ignore, but proxies see traffic and don't drop the connection). Disconnect check still runs every iteration. Cleanup cancels remaining `pending` tasks on exit.
+- `components/search/search.html`: when `p.total > 50` and not capped, shows a "large area — this may take a few minutes" hint next to the spinner so the user expects a multi-minute scan.
+- README: SSE section updated (ceiling + keepalive note).
+
+Build passes (`ng build --configuration development`). Backend module imports cleanly with the new constants.
+
+## ✅ 9. Amenity filter dropdown — DONE
+
+Native `<select>` (no Material dep). Backend-side filtering, so fewer scans / fewer outbound HTTP calls when an amenity is selected.
+
+- `services/overpass.py`: `FOOD_AMENITIES` constant unchanged (the Overpass query still pulls all eight in one call so the cache stays useful across filter switches).
+- `routers/restaurants.py`: extracted `_validate_query`, `_load_restaurants`, `_filter_by_amenity` helpers. Both `GET /api/restaurants` and `GET /api/restaurants/scan` accept `amenity=<value>` (validated against `FOOD_AMENITIES`, 400 on unknown). Cache key stays zip-only — switching the dropdown is a cache hit + cheap in-memory filter, so no extra Overpass calls.
+- `services/restaurant.ts`: `scanStream(zip, amenity?)` builds the URL with `URLSearchParams`.
+- `components/search/search.ts`: `AMENITY_OPTIONS` const + `selectedAmenity` field passed to the stream.
+- `components/search/search.html` + `search.scss`: native `<select class="amenity-select">` between zip input and country select; styled the enabled variant.
+
+Build passes (`ng build --configuration development`).
+
+## 10. Cleanup pass (last)
 
 After 4–6 land:
 - Search for unreferenced functions/components/imports across `backend/` and `frontend/src/`.
@@ -60,7 +83,9 @@ After 4–6 land:
 
 1. ~~Investigate #4 and #6~~ — done.
 2. #5 OCR path (backend, isolated).
-3. #7 cleanup.
+3. ~~#9 amenity filter dropdown~~ — done.
+4. ~~#8 lift the 30-restaurant cap~~ — done.
+5. #10 cleanup.
 
 ## Out of scope (confirmed)
 

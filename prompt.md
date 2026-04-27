@@ -9,7 +9,7 @@ You are continuing work on **Sprout Scout** at `C:\Vali\coding\sprout-scout`. It
 ## Read these first, in this order
 
 1. `README.md` — full architecture, API contract, design decisions. Authoritative.
-2. `todos.md` — the live work plan. Items 1–4 and 6 are done; 5 and 7 are pending. **Read this even if you think you remember the state — it's the source of truth.**
+2. `todos.md` — the live work plan. Items 1–4 and 6 are done; 5, 8, 9, 10 are pending. **Read this even if you think you remember the state — it's the source of truth.**
 
 Skim, don't memorize. The code is the truth.
 
@@ -22,7 +22,9 @@ Skim, don't memorize. The code is the truth.
 ## What's pending (from `todos.md`)
 
 - **#5** — `zuminderhof.at` likely serves an image-only PDF. Add OCR (`pytesseract` + `pdf2image` + Tesseract + Poppler) **only as a fallback** when `pdfplumber.extract_text()` returns empty/near-empty. If extraction works but no vegan keyword matches, do NOT OCR.
-- **#7** — cleanup pass. Includes deciding whether to delete `GET /api/restaurants/{id}/vegan` (no FE callers since step 1).
+- **#8** — lift the 30-restaurant scan cap (`SCAN_RESTAURANT_CAP` in `backend/routers/restaurants.py`). Needs SSE keepalive + confirmation of Render's stream timeout. Open question for user: keep a sanity ceiling or fully uncapped?
+- **#9** — Angular Material amenity dropdown (Restaurant / Café / …). `@angular/material` not yet installed — confirm with user before adding the dep. Open question: BE-side filter (composes with #8) vs. FE-only.
+- **#10** — cleanup pass. Includes deciding whether to delete `GET /api/restaurants/{id}/vegan` (no FE callers since step 1).
 
 ## Hard constraints — don't cross these without asking
 
@@ -42,7 +44,7 @@ Skim, don't memorize. The code is the truth.
 
 ## Suggested first move
 
-Open `todos.md`, pick #5 (OCR fallback) or #7 (cleanup). For #5, start by downloading `zuminderhof.at`'s PDF and confirming `pdfplumber.extract_text()` actually returns empty before adding any deps. For #7, grep for callers of `GET /api/restaurants/{id}/vegan` and the `getVeganDishes` shape in the FE.
+Open `todos.md`, pick #5 (OCR fallback), #8 (lift scan cap), #9 (amenity dropdown), or #10 (cleanup). For #5, start by downloading `zuminderhof.at`'s PDF and confirming `pdfplumber.extract_text()` actually returns empty before adding any deps. For #8 and #9 there are open questions for the user — ask before implementing. For #10, grep for callers of `GET /api/restaurants/{id}/vegan` and the `getVeganDishes` shape in the FE.
 
 ```bash
 cd backend && venv/Scripts/python -m tests.scan_examples

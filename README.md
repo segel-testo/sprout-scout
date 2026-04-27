@@ -92,8 +92,8 @@ sprout-scout/
 
 ## API Endpoints
 
-### `GET /api/restaurants?zip_code=1010&country=AT`
-Returns a list of restaurants from OpenStreetMap. Cached for 1 week.
+### `GET /api/restaurants?zip_code=1010&country=AT&amenity=cafe`
+Returns a list of restaurants from OpenStreetMap. Cached for 1 week. Optional `amenity` filters to one of `restaurant|cafe|fast_food|pub|bar|biergarten|food_court|ice_cream`; the cache stores the full set, so switching the filter doesn't trigger another Overpass call.
 
 ### `GET /api/restaurants/{id}/vegan?website=...&name=...&address=...&osm_type=...&osm_diet_vegan=...`
 Scans one restaurant's menu. Returns either:
@@ -136,9 +136,9 @@ Scans one restaurant's menu. Returns either:
 }
 ```
 
-### `GET /api/restaurants/scan?zip_code=1010&country=AT`  *(Server-Sent Events)*
+### `GET /api/restaurants/scan?zip_code=1010&country=AT&amenity=cafe`  *(Server-Sent Events)*
 
-Streams scan results for every restaurant in the zip, capped at 30 to keep scan time bounded.
+Streams scan results for every restaurant in the zip. A defensive ceiling of 500 keeps a runaway query from spinning forever, but no realistic Austrian zip hits it. Optional `amenity` narrows the batch before the ceiling is applied — fewer scans = fewer outbound HTTP calls.
 
 Events emitted:
 
@@ -148,7 +148,7 @@ Events emitted:
 - `error` — `{ restaurant_id, reason }` on scan failure
 - `done` — `{ scanned, total }` when the batch is finished
 
-Concurrency: up to 8 scans in flight, 25s timeout per scan, cancels cleanly on client disconnect.
+Concurrency: up to 8 scans in flight, 25s timeout per scan, cancels cleanly on client disconnect. Emits a `:keepalive` SSE comment every 15s of idle so proxies don't drop long-running streams.
 
 ### `GET /health`
 Health check.

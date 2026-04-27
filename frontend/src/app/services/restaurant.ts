@@ -34,9 +34,11 @@ export type ScanEvent =
 export class RestaurantService {
   private apiUrl = 'http://localhost:8000/api';
 
-  scanStream(zipCode: string): Observable<ScanEvent> {
+  scanStream(zipCode: string, amenity?: string): Observable<ScanEvent> {
     return new Observable<ScanEvent>((subscriber) => {
-      const url = `${this.apiUrl}/restaurants/scan?zip_code=${zipCode}&country=AT`;
+      const params = new URLSearchParams({ zip_code: zipCode, country: 'AT' });
+      if (amenity) params.set('amenity', amenity);
+      const url = `${this.apiUrl}/restaurants/scan?${params.toString()}`;
       const source = new EventSource(url);
 
       const forward = (type: ScanEvent['type']) => (ev: MessageEvent) => {

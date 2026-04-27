@@ -12,6 +12,11 @@
       maxlength="4"
       (keyup.enter)="search()"
     />
+    <select class="amenity-select" [(ngModel)]="selectedAmenity" title="Filter by amenity">
+      @for (opt of amenityOptions; track opt.value) {
+        <option [value]="opt.value">{{ opt.label }}</option>
+      }
+    </select>
     <select disabled title="More countries coming soon">
       <option value="AT">Austria</option>
     </select>
@@ -26,6 +31,8 @@
       <span>Scanning {{ p.scanned }} / {{ p.total }} restaurants...</span>
       @if (scanCapped()) {
         <span class="cap-note">(limited to first {{ p.total }})</span>
+      } @else if (p.total > 50) {
+        <span class="cap-note">large area — this may take a few minutes</span>
       }
     </div>
   }

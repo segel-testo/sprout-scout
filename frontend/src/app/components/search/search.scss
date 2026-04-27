@@ -50,6 +50,17 @@ header {
     cursor: not-allowed;
   }
 
+  select.amenity-select {
+    cursor: pointer;
+    color: #2d3a30;
+    outline: none;
+    transition: border-color 0.2s;
+
+    &:focus {
+      border-color: #2d7a3a;
+    }
+  }
+
   button {
     padding: 12px 24px;
     background: #2d7a3a;

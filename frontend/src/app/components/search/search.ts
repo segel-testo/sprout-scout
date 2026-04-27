@@ -9,6 +9,18 @@ interface ListItem {
   scan: ScanResult;
 }
 
+export const AMENITY_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All amenities' },
+  { value: 'restaurant', label: 'Restaurant' },
+  { value: 'cafe', label: 'Café' },
+  { value: 'fast_food', label: 'Fast food' },
+  { value: 'pub', label: 'Pub' },
+  { value: 'bar', label: 'Bar' },
+  { value: 'biergarten', label: 'Biergarten' },
+  { value: 'food_court', label: 'Food court' },
+  { value: 'ice_cream', label: 'Ice cream' },
+];
+
 @Component({
   selector: 'app-search',
   imports: [FormsModule, RestaurantCard],
@@ -17,6 +29,8 @@ interface ListItem {
 })
 export class Search implements OnDestroy {
   zipCode = '';
+  selectedAmenity = '';
+  amenityOptions = AMENITY_OPTIONS;
   items = signal<ListItem[]>([]);
   loading = signal(false);
   error = signal('');
@@ -44,7 +58,7 @@ export class Search implements OnDestroy {
     this.streamSub?.unsubscribe();
 
     this.loading.set(true);
-    this.streamSub = this.restaurantService.scanStream(this.zipCode).subscribe({
+    this.streamSub = this.restaurantService.scanStream(this.zipCode, this.selectedAmenity).subscribe({
       next: (event) => {
         if (event.type === 'start') {
           this.scanProgress.set({ scanned: 0, total: event.total });
