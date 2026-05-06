@@ -18,12 +18,11 @@ Skim, don't memorize. The code is the truth.
 - Discovery widened: Overpass query now matches eight food-serving amenities (`restaurant|cafe|fast_food|pub|bar|biergarten|food_court|ice_cream`) instead of just `restaurant`. Was the root cause for #4 — Bruder und Schwester is `amenity=cafe`. The `amenity` field is now propagated through SSE to the FE.
 - One-hop menu-link crawl added to scanner: when both pdf and generic adapters yield empty on the homepage, follows up to 4 same-host links matching `menu|menü|menue|speisekarte|karte|produkte|gerichte|essen|food|drinks|getränke` and runs both adapters on each. Also fixed the base URL to use the post-redirect `response.url` so subdomain redirects (e.g. `kennys.at` → `www.kennys.at`) don't break same-host filtering. Resolved #6 (kennys → 8 dishes via `/produkte/`) and rounded out #4 (bruder homepage → `/speisekarte` PDF → 7 dishes).
 - Restaurant card now shows an amenity tag (Restaurant / Café / Pub / …) absolutely positioned in the top-right corner, matching the card's 20px padding. Primary-link button moved to bottom-right (`align-items: flex-end`) so it doesn't collide with the tag.
+- **#11 radius search ("Near me") landed.** Segmented control (`By zip` default + `Near me`) above the search row. Radius pills 500m / 1km / 2km, default 500m. Backend hard-clips to Austria via Overpass `area["ISO3166-1"="AT"]`. Two new endpoints: `GET /api/restaurants-by-radius` and SSE `GET /api/restaurants/scan-by-radius`. Cache key `AT_radius_{round(lat,3)}_{round(lon,3)}_{radius}` ≈ 100m grid. Streaming/keepalive/cancellation logic refactored into `_stream_scan` shared by both SSE endpoints. Frontend Search button is the single entry point — it fetches a fresh fix on every press (`maximumAge: 60000`) and shows an inline white spinner + `Locating…` label while in flight; on denial → snap back to zip + inline error. Empty-state offers a "Try 1 km" / "Try 2 km" bump.
 
 ## What's pending (from `todos.md`)
 
 - **#5** — `zuminderhof.at` likely serves an image-only PDF. Add OCR (`pytesseract` + `pdf2image` + Tesseract + Poppler) **only as a fallback** when `pdfplumber.extract_text()` returns empty/near-empty. If extraction works but no vegan keyword matches, do NOT OCR.
-- **#8** — lift the 30-restaurant scan cap (`SCAN_RESTAURANT_CAP` in `backend/routers/restaurants.py`). Needs SSE keepalive + confirmation of Render's stream timeout. Open question for user: keep a sanity ceiling or fully uncapped?
-- **#9** — Angular Material amenity dropdown (Restaurant / Café / …). `@angular/material` not yet installed — confirm with user before adding the dep. Open question: BE-side filter (composes with #8) vs. FE-only.
 - **#10** — cleanup pass. Includes deciding whether to delete `GET /api/restaurants/{id}/vegan` (no FE callers since step 1).
 
 ## Hard constraints — don't cross these without asking
@@ -44,7 +43,7 @@ Skim, don't memorize. The code is the truth.
 
 ## Suggested first move
 
-Open `todos.md`, pick #5 (OCR fallback), #8 (lift scan cap), #9 (amenity dropdown), or #10 (cleanup). For #5, start by downloading `zuminderhof.at`'s PDF and confirming `pdfplumber.extract_text()` actually returns empty before adding any deps. For #8 and #9 there are open questions for the user — ask before implementing. For #10, grep for callers of `GET /api/restaurants/{id}/vegan` and the `getVeganDishes` shape in the FE.
+Open `todos.md`, pick #5 (OCR fallback) or #10 (cleanup). For #5, start by downloading `zuminderhof.at`'s PDF and confirming `pdfplumber.extract_text()` actually returns empty before adding any deps. For #10, grep for callers of `GET /api/restaurants/{id}/vegan` and the `getVeganDishes` shape in the FE.
 
 ```bash
 cd backend && venv/Scripts/python -m tests.scan_examples

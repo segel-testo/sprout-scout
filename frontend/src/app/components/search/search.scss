@@ -6,7 +6,7 @@
 
 header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 
   h1 {
     font-size: 2.4rem;
@@ -21,10 +21,40 @@ header {
   }
 }
 
+.mode-tabs {
+  display: inline-flex;
+  margin-bottom: 16px;
+  border: 2px solid #cde0c9;
+  border-radius: 999px;
+  padding: 4px;
+  background: #f6faf5;
+
+  button {
+    padding: 8px 18px;
+    border: none;
+    background: transparent;
+    color: #555;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover:not(.active) {
+      color: #2d7a3a;
+    }
+
+    &.active {
+      background: #2d7a3a;
+      color: #fff;
+    }
+  }
+}
+
 .search-box {
   display: flex;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 
   input {
     flex: 1;
@@ -62,6 +92,10 @@ header {
   }
 
   button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     padding: 12px 24px;
     background: #2d7a3a;
     color: #fff;
@@ -79,6 +113,42 @@ header {
     &:disabled {
       background: #8ab893;
       cursor: not-allowed;
+    }
+  }
+}
+
+.search-box.radius-row {
+  align-items: stretch;
+}
+
+.radius-pills {
+  display: inline-flex;
+  flex: 1;
+  gap: 6px;
+  padding: 4px;
+  border: 2px solid #cde0c9;
+  border-radius: 8px;
+  background: #fff;
+
+  button {
+    flex: 1;
+    padding: 8px 14px;
+    border: none;
+    background: transparent;
+    color: #2d3a30;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover:not(.active) {
+      background: #eef6ec;
+    }
+
+    &.active {
+      background: #2d7a3a;
+      color: #fff;
     }
   }
 }
@@ -106,14 +176,37 @@ header {
   animation: spin 0.8s linear infinite;
 }
 
+.spinner-on-dark {
+  border-color: rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
 
 .error {
   color: #c0392b;
-  margin-bottom: 16px;
+  margin-bottom: 8px;
   font-size: 0.95rem;
+}
+
+.suggest-btn {
+  margin-bottom: 16px;
+  padding: 8px 16px;
+  background: #fff;
+  color: #2d7a3a;
+  border: 2px solid #2d7a3a;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+
+  &:hover {
+    background: #2d7a3a;
+    color: #fff;
+  }
 }
 
 .results {

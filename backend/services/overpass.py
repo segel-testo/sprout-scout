@@ -14,6 +14,25 @@ async def fetch_restaurants(zip_code: str) -> list[dict]:
     nwr["amenity"~"^({amenity_regex})$"]["addr:postcode"="{zip_code}"](area.country);
     out body;
     """
+    return await _run_query(query)
+
+
+async def fetch_restaurants_by_radius(lat: float, lon: float, radius_m: int) -> list[dict]:
+    amenity_regex = "|".join(FOOD_AMENITIES)
+    query = f"""
+    [out:json][timeout:25];
+    area["ISO3166-1"="AT"]["admin_level"="2"]->.country;
+    (
+      node["amenity"~"^({amenity_regex})$"](around:{radius_m},{lat},{lon})(area.country);
+      way["amenity"~"^({amenity_regex})$"](around:{radius_m},{lat},{lon})(area.country);
+      relation["amenity"~"^({amenity_regex})$"](around:{radius_m},{lat},{lon})(area.country);
+    );
+    out center;
+    """
+    return await _run_query(query)
+
+
+async def _run_query(query: str) -> list[dict]:
     headers = {
         "User-Agent": "SproutScout/0.1 (https://github.com/valroeck/sprout-scout)",
         "Accept": "application/json",

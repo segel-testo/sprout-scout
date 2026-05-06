@@ -20,6 +20,7 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | SSE bulk-scan endpoint | done |
 | Angular UI (single auto-scan flow) | done |
 | Integration test against 5 real-world URLs | done |
+| Radius search (`Near me` mode, 500m / 1km / 2km, AT-clipped) | done |
 | Deploy frontend (Vercel) | next |
 | Deploy backend (Render) | next |
 
@@ -95,6 +96,9 @@ sprout-scout/
 ### `GET /api/restaurants?zip_code=1010&country=AT&amenity=cafe`
 Returns a list of restaurants from OpenStreetMap. Cached for 1 week. Optional `amenity` filters to one of `restaurant|cafe|fast_food|pub|bar|biergarten|food_court|ice_cream`; the cache stores the full set, so switching the filter doesn't trigger another Overpass call.
 
+### `GET /api/restaurants-by-radius?lat=48.21&lon=16.37&radius=500&amenity=cafe`
+Same shape as `/api/restaurants` but searches a circular area around `lat,lon`. `radius` is meters, must be one of `500 | 1000 | 2000`. Hard-clipped to Austria via the Overpass `area["ISO3166-1"="AT"]` filter — cross-border hits are dropped at the source, not post-filtered. Cache key rounds coordinates to 3 decimals (~75–110m at AT latitude), so repeat taps from the same spot share a cache hit.
+
 ### `GET /api/restaurants/{id}/vegan?website=...&name=...&address=...&osm_type=...&osm_diet_vegan=...`
 Scans one restaurant's menu. Returns either:
 
@@ -140,6 +144,10 @@ Scans one restaurant's menu. Returns either:
 
 Streams scan results for every restaurant in the zip. A defensive ceiling of 500 keeps a runaway query from spinning forever, but no realistic Austrian zip hits it. Optional `amenity` narrows the batch before the ceiling is applied — fewer scans = fewer outbound HTTP calls.
 
+### `GET /api/restaurants/scan-by-radius?lat=48.21&lon=16.37&radius=500&amenity=cafe`  *(Server-Sent Events)*
+
+Same SSE event shape as `/api/restaurants/scan`, but the batch is sourced from the radius endpoint above. Same ceiling, same keepalive, same `amenity` filter behavior.
+
 Events emitted:
 
 - `start` — `{ total, total_available, capped }`
@@ -157,7 +165,12 @@ Health check.
 
 ## Frontend UX
 
-Single auto-scan flow: the search bar opens the SSE endpoint immediately, shows a spinner + `Scanning X / 30` counter, and reveals restaurants progressively as their scans come back positive. Zero-dish results are filtered out server-side. Empty-state message if nothing is found.
+Two search modes via a segmented control above the input row:
+
+- **By zip** (default) — 4-digit Austrian zip + amenity filter.
+- **Near me** — three radius pills (500m / 1km / 2km, default 500m) + amenity filter. The Search button itself triggers geolocation on every press: while in flight the button label is `Locating…` with an inline spinner, then flips to `Searching…` once the scan starts. `getCurrentPosition` runs with `maximumAge: 60000`, so a fresh fix from the last minute is reused instantly without a real GPS poll. On denial or unsupported browser, the UI snaps back to zip mode and shows an inline message.
+
+After either mode finishes, the search bar opens the SSE endpoint immediately, shows a spinner + `Scanning X / total` counter, and reveals restaurants progressively as their scans come back positive. Zero-dish results are filtered out server-side. If a radius scan finishes empty, an inline "Try 1 km" / "Try 2 km" button bumps the radius and re-runs.
 
 Each restaurant card shows: name, "Vegan options found" badge, address, phone, an amenity tag in the top-right corner (Restaurant / Café / Pub / …), and a single primary-link button in the bottom-right. The button picks the best target available: delivery platform link → website → Google Maps search.
 
@@ -209,6 +222,6 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 - **Vegan detection.** Keyword-based (kept intentionally simple); `vegetarisch` is *not* a match since it's not vegan. Negation tokens (`kein`, `ohne`, `leider`, `no`, `without`) suppress matches. Two-pass legend parsing picks up symbol markers like `V = vegan` even when the legend lives elsewhere on the page. "Vegan on request" gets a 0.3 confidence instead of a full match.
 - **One-hop crawl, not a full crawler.** When the homepage yields nothing, the scanner follows up to 4 same-host links whose path/text matches obvious menu words and runs both adapters on each. Anything deeper (JS-rendered menus, interactive menu builders) is out of scope — no headless browser.
 - **PDF embedding.** Supports `<a href>`, `<iframe>`, `<object>`, `<embed>`, content-type sniffing for extension-less URLs, and PDF.js viewer query-param unwrapping.
-- **Caching.** File-based JSON in `backend/.cache/`, 1-week TTL. Restaurant lists cached by zip; scan results cached by `{restaurant_id}_{sha1(website)[:10]}` so the same URL doesn't re-scan on every search.
+- **Caching.** File-based JSON in `backend/.cache/`, 1-week TTL. Restaurant lists cached by zip; radius lists cached by `AT_radius_{round(lat,3)}_{round(lon,3)}_{radius}` (a ~100m grid so nearby taps share); scan results cached by `{restaurant_id}_{sha1(website)[:10]}` so the same URL doesn't re-scan on every search.
 - **SSE over WebSockets.** One-way stream, plain HTTP, browser-native `EventSource`. No extra dependency needed — FastAPI's `StreamingResponse` emits the `event:` / `data:` frames directly.
 - **No login required.** Public tool.

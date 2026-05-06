@@ -69,6 +69,18 @@ Native `<select>` (no Material dep). Backend-side filtering, so fewer scans / fe
 
 Build passes (`ng build --configuration development`).
 
+## ✅ 11. Radius search ("Near me" mode) — DONE
+
+Two-mode search via segmented control: existing `By zip` plus new `Near me` (500m / 1km / 2km, default 500m). Backend hard-clips to Austria via the Overpass `area["ISO3166-1"="AT"]` filter; cross-border hits are dropped at the source.
+
+- `services/overpass.py`: extracted `_run_query`. New `fetch_restaurants_by_radius(lat, lon, radius_m)` using `(around:R,lat,lon)(area.country)` against the same eight food amenities.
+- `routers/restaurants.py`: new `_validate_radius_query` and `_load_restaurants_by_radius` (cache key `AT_radius_{round(lat,3)}_{round(lon,3)}_{radius}` ≈ 100m grid). Two new endpoints: `GET /api/restaurants-by-radius` and `GET /api/restaurants/scan-by-radius`. Refactored streaming/keepalive/cancellation logic into `_stream_scan` reused by both SSE endpoints.
+- `services/restaurant.ts`: extracted `streamFrom(url)` helper. New `scanStreamByRadius(lat, lon, radius, amenity?)`.
+- `components/search/search.ts`: `mode`, `radius`, `coords`, `geoStatus` signals. `searchByRadius()` is async and calls `getFreshCoords()` (Promise wrapper around `getCurrentPosition`, `maximumAge: 60000`) on every press — denial or unavailable → snap to zip + inline error. No standalone refresh/locate button; the Search button is the single entry point. `tryLargerRadius()` powers the empty-state suggestion.
+- `components/search/search.html` + `.scss`: segmented control (`By zip` / `Near me`), radius pill group, "Try N km" suggest button on empty radius result. While locating, the Search button shows an inline white spinner (`.spinner-on-dark`) + `Locating…` label.
+
+Build passes (`ng build --configuration development`). Backend module imports cleanly.
+
 ## 10. Cleanup pass (last)
 
 After 4–6 land:
@@ -85,7 +97,8 @@ After 4–6 land:
 2. #5 OCR path (backend, isolated).
 3. ~~#9 amenity filter dropdown~~ — done.
 4. ~~#8 lift the 30-restaurant cap~~ — done.
-5. #10 cleanup.
+5. ~~#11 radius search~~ — done.
+6. #10 cleanup.
 
 ## Out of scope (confirmed)
 

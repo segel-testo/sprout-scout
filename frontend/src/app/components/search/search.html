@@ -4,26 +4,80 @@
     <p>Find vegan dishes at restaurants near you</p>
   </header>
 
-  <div class="search-box">
-    <input
-      type="text"
-      [(ngModel)]="zipCode"
-      placeholder="Enter zip code (e.g. 1010)"
-      maxlength="4"
-      (keyup.enter)="search()"
-    />
-    <select class="amenity-select" [(ngModel)]="selectedAmenity" title="Filter by amenity">
-      @for (opt of amenityOptions; track opt.value) {
-        <option [value]="opt.value">{{ opt.label }}</option>
-      }
-    </select>
-    <select disabled title="More countries coming soon">
-      <option value="AT">Austria</option>
-    </select>
-    <button (click)="search()" [disabled]="loading()">
-      {{ loading() ? 'Searching...' : 'Search' }}
+  <div class="mode-tabs" role="tablist">
+    <button
+      role="tab"
+      [class.active]="mode() === 'zip'"
+      [attr.aria-selected]="mode() === 'zip'"
+      (click)="setMode('zip')"
+      type="button"
+    >
+      By zip
+    </button>
+    <button
+      role="tab"
+      [class.active]="mode() === 'radius'"
+      [attr.aria-selected]="mode() === 'radius'"
+      (click)="setMode('radius')"
+      type="button"
+    >
+      Near me
     </button>
   </div>
+
+  @if (mode() === 'zip') {
+    <div class="search-box">
+      <input
+        type="text"
+        [(ngModel)]="zipCode"
+        placeholder="Enter zip code (e.g. 1010)"
+        maxlength="4"
+        (keyup.enter)="search()"
+      />
+      <select class="amenity-select" [(ngModel)]="selectedAmenity" title="Filter by amenity">
+        @for (opt of amenityOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+      <select disabled title="More countries coming soon">
+        <option value="AT">Austria</option>
+      </select>
+      <button (click)="search()" [disabled]="loading()">
+        {{ loading() ? 'Searching...' : 'Search' }}
+      </button>
+    </div>
+  } @else {
+    <div class="search-box radius-row">
+      <div class="radius-pills" role="radiogroup" aria-label="Search radius">
+        @for (opt of radiusOptions; track opt.value) {
+          <button
+            type="button"
+            role="radio"
+            [class.active]="radius() === opt.value"
+            [attr.aria-checked]="radius() === opt.value"
+            (click)="setRadius(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        }
+      </div>
+      <select class="amenity-select" [(ngModel)]="selectedAmenity" title="Filter by amenity">
+        @for (opt of amenityOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+      <button (click)="search()" [disabled]="loading() || geoStatus() === 'locating'">
+        @if (geoStatus() === 'locating') {
+          <span class="spinner spinner-on-dark"></span>
+          <span>Locating…</span>
+        } @else if (loading()) {
+          <span>Searching...</span>
+        } @else {
+          <span>Search</span>
+        }
+      </button>
+    </div>
+  }
 
   @if (loading() && scanProgress(); as p) {
     <div class="scan-progress">
@@ -39,6 +93,11 @@
 
   @if (error()) {
     <p class="error">{{ error() }}</p>
+    @if (mode() === 'radius' && lastScanWasEmpty() && suggestedNextRadiusLabel) {
+      <button class="suggest-btn" type="button" (click)="tryLargerRadius()">
+        Try {{ suggestedNextRadiusLabel }}
+      </button>
+    }
   }
 
   <div class="results">

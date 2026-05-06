@@ -35,10 +35,23 @@ export class RestaurantService {
   private apiUrl = 'http://localhost:8000/api';
 
   scanStream(zipCode: string, amenity?: string): Observable<ScanEvent> {
+    const params = new URLSearchParams({ zip_code: zipCode, country: 'AT' });
+    if (amenity) params.set('amenity', amenity);
+    return this.streamFrom(`${this.apiUrl}/restaurants/scan?${params.toString()}`);
+  }
+
+  scanStreamByRadius(lat: number, lon: number, radius: number, amenity?: string): Observable<ScanEvent> {
+    const params = new URLSearchParams({
+      lat: String(lat),
+      lon: String(lon),
+      radius: String(radius),
+    });
+    if (amenity) params.set('amenity', amenity);
+    return this.streamFrom(`${this.apiUrl}/restaurants/scan-by-radius?${params.toString()}`);
+  }
+
+  private streamFrom(url: string): Observable<ScanEvent> {
     return new Observable<ScanEvent>((subscriber) => {
-      const params = new URLSearchParams({ zip_code: zipCode, country: 'AT' });
-      if (amenity) params.set('amenity', amenity);
-      const url = `${this.apiUrl}/restaurants/scan?${params.toString()}`;
       const source = new EventSource(url);
 
       const forward = (type: ScanEvent['type']) => (ev: MessageEvent) => {
