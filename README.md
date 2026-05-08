@@ -24,6 +24,7 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Soft-natural UI redesign + custom dropdown + paginated results | done |
 | Stop control (abort in-flight scan, keep partial results) | done |
 | Overpass retry-with-backoff + clean 503 on persistent failure | done |
+| SSRF hardening (private-IP block + manual redirect walk) | done |
 | Deploy frontend (Vercel) | next |
 | Deploy backend (Render) | next |
 
@@ -76,6 +77,7 @@ sprout-scout/
 │   │   ├── extractor.py               # Vegan keyword matching (negation, legends)
 │   │   ├── fallback.py                # No-menu payload + delivery_link shape
 │   │   ├── cache.py                   # File-based cache (namespaced)
+│   │   ├── safe_fetch.py              # SSRF-safe wrapper for outbound HTTP (private-IP block, manual redirect walk)
 │   │   └── adapters/
 │   │       ├── generic.py             # Plain HTML text extraction
 │   │       ├── pdf.py                 # All PDF embedding methods
@@ -101,47 +103,6 @@ Returns a list of restaurants from OpenStreetMap. Cached for 1 week. Optional `a
 
 ### `GET /api/restaurants-by-radius?lat=48.21&lon=16.37&radius=500&amenity=cafe`
 Same shape as `/api/restaurants` but searches a circular area around `lat,lon`. `radius` is meters, must be one of `500 | 1000 | 2000`. Hard-clipped to Austria via the Overpass `area["ISO3166-1"="AT"]` filter — cross-border hits are dropped at the source, not post-filtered. Cache key rounds coordinates to 3 decimals (~75–110m at AT latitude), so repeat taps from the same spot share a cache hit.
-
-### `GET /api/restaurants/{id}/vegan?website=...&name=...&address=...&osm_type=...&osm_diet_vegan=...`
-Scans one restaurant's menu. Returns either:
-
-```jsonc
-// dishes found
-{
-  "restaurant_id": "123",
-  "no_menu": false,
-  "dishes": [{ "name": "...", "confidence": 0.9, "matched_keywords": ["vegan"], "source": "..." }],
-  "delivery_link": null
-}
-```
-
-```jsonc
-// delivery-platform link-out
-{
-  "restaurant_id": "123",
-  "no_menu": true,
-  "dishes": [],
-  "delivery_link": { "platform": "foodora", "url": "https://...", "label": "View menu on foodora" },
-  "fallback_links": [...],
-  "osm_diet_vegan": null
-}
-```
-
-```jsonc
-// no menu online
-{
-  "restaurant_id": "123",
-  "no_menu": true,
-  "dishes": [],
-  "delivery_link": null,
-  "fallback_links": [
-    { "label": "Restaurant website", "url": "..." },
-    { "label": "Search on Google Maps", "url": "..." },
-    { "label": "View on OpenStreetMap", "url": "..." }
-  ],
-  "osm_diet_vegan": "yes"   // or "only" / "limited" / null
-}
-```
 
 ### `GET /api/restaurants/scan?zip_code=1010&country=AT&amenity=cafe`  *(Server-Sent Events)*
 
@@ -235,4 +196,5 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 - **SSE over WebSockets.** One-way stream, plain HTTP, browser-native `EventSource`. No extra dependency needed — FastAPI's `StreamingResponse` emits the `event:` / `data:` frames directly.
 - **Overpass resilience.** Public Overpass API regularly returns 504 / 502 / 429 under load. `_run_query` retries up to 3 attempts with 1s/2s backoff on those statuses and on `httpx.RequestError`; persistent failures convert to `HTTPException(503)` at the router so the frontend can show a friendly "directory temporarily unavailable" message instead of a 500 stack trace. The `EventSource` client also distinguishes connection-failed-before-any-event from a normal end-of-stream so a backend 503 surfaces as an inline error rather than an indefinite spinner.
 - **Stop control.** Abort is purely a frontend-driven `EventSource.close()` — the backend's `_stream_scan` already polled `request.is_disconnected()` for keepalive purposes, so the same path cancels pending scan tasks cleanly when the user hits Stop. Already-found results stay rendered.
+- **SSRF guard on outbound fetches.** OSM is publicly editable, so any `website` tag is attacker-controllable. `services/safe_fetch.py` is the chokepoint for every outbound HTTP request the scanner makes: it requires `http`/`https`, rejects URLs whose host (literal IP or DNS-resolved address) falls into `is_private | is_loopback | is_link_local | is_reserved | is_multicast | is_unspecified`, and walks redirects manually so each `Location` hop is re-validated. Cloud-metadata endpoints (`169.254.169.254`), loopback, and RFC1918 ranges are unreachable from the scanner. `httpx.AsyncClient` is configured with `follow_redirects=False` to enforce this — the auto-follow path would have bypassed validation.
 - **No login required.** Public tool.

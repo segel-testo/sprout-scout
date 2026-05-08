@@ -7,6 +7,7 @@ import pdfplumber
 from bs4 import BeautifulSoup
 
 from services.extractor import extract_vegan_dishes
+from services.safe_fetch import safe_get, safe_head
 
 
 PDF_VIEWER_PARAMS = ("file", "url", "src")
@@ -78,15 +79,15 @@ async def scan_url(url: str, client: httpx.AsyncClient) -> list[dict]:
 
 async def _fetch_pdf(url: str, client: httpx.AsyncClient) -> bytes | None:
     if not _looks_like_pdf_url(url):
-        try:
-            head = await client.head(url)
-            content_type = head.headers.get("content-type", "").lower()
-            if "pdf" not in content_type:
-                return None
-        except Exception:
+        head = await safe_head(client, url)
+        if head is None:
             return None
-    response = await client.get(url)
-    response.raise_for_status()
+        content_type = head.headers.get("content-type", "").lower()
+        if "pdf" not in content_type:
+            return None
+    response = await safe_get(client, url)
+    if response is None or response.status_code >= 400:
+        return None
     if "pdf" not in response.headers.get("content-type", "").lower() and not _looks_like_pdf_url(url):
         return None
     return response.content

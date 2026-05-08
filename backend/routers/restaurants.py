@@ -183,22 +183,3 @@ def _stream_scan(restaurants: list[dict], request: Request) -> StreamingResponse
 
 def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
-
-
-@router.get("/restaurants/{restaurant_id}/vegan")
-async def get_vegan_dishes(
-    restaurant_id: str,
-    website: str = "",
-    name: str = "",
-    address: str = "",
-    osm_type: str = "node",
-    osm_diet_vegan: str | None = None,
-):
-    restaurant = {
-        "name": name,
-        "address": address,
-        "website": website,
-        "osm_type": osm_type,
-        "osm_diet_vegan": osm_diet_vegan,
-    }
-    return await scan_restaurant(restaurant_id, website, restaurant)

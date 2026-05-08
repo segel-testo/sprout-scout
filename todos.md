@@ -106,6 +106,137 @@ Two-mode search via segmented control: existing `By zip` plus new `Near me` (500
 
 Build passes (`ng build --configuration development`). Backend module imports cleanly.
 
+---
+
+## 🔒 Pre-launch security hardening
+
+Audit done 2026-05-08 against the deployed-but-unreleased state of `main`. Items are ordered by severity. **#15 is a launch blocker** — public, anonymous SSRF into Render's metadata endpoint and internal services.
+
+## ✅ 15. Block SSRF in the scanner — DONE
+
+New helper `backend/services/safe_fetch.py` validates every outbound URL before fetching:
+
+- `is_safe_url(url)` rejects non-http(s) schemes, missing hosts, IP-literal URLs that resolve to private space, and DNS hostnames whose `getaddrinfo` returns *any* address that is `is_private | is_loopback | is_link_local | is_reserved | is_multicast | is_unspecified` (or unparseable).
+- `safe_get` / `safe_head` walk redirects manually (`MAX_REDIRECTS = 5`) and re-validate each `Location` hop before the next request.
+
+Wired into:
+- `services/scanner.py`: `httpx.AsyncClient` switched to `follow_redirects=False`. Initial homepage fetch and every menu-link crawl candidate go through `safe_get`.
+- `services/adapters/pdf.py`: `_fetch_pdf` uses `safe_head` + `safe_get` for every PDF candidate, including ones unwrapped from `?file=`/`?url=`/`?src=` viewer params.
+
+End-to-end verified — `scan_restaurant` returns the no-menu fallback with no fetch issued for `http://169.254.169.254/...`, `http://127.0.0.1/...`, `http://10.0.0.1/...`. Integration test (`tests.scan_examples`) still produces the five expected outcomes (Zen → delivery link, Akakiko → 2 dishes, Ofenbarung + MisterBeans → no_menu, Bruder → 7 dishes from PDF).
+
+Residual risk: DNS-rebinding window between `_resolve_safe` and the actual `client.get` is open. Mitigation would be IP-literal pinning with explicit `Host` header — deferred since the current attack model (OSM-edited URLs, attacker-controlled redirects) is fully covered by the resolve-then-fetch check.
+
+## ✅ 16. Delete `GET /api/restaurants/{id}/vegan` — DONE
+
+`git grep` confirmed zero callers. Removed the `@router.get("/restaurants/{restaurant_id}/vegan")` handler in `backend/routers/restaurants.py`. The `scan_restaurant` import stays — still used by `_stream_scan` and `tests.scan_examples`.
+
+Routes after the change: `/api/restaurants`, `/api/restaurants-by-radius`, `/api/restaurants/scan`, `/api/restaurants/scan-by-radius`, `/health`. The unused `RestaurantCard.index` input still pending — folded into #10 cleanup.
+
+## 17. Move frontend `apiUrl` into Angular environment files — MEDIUM
+
+**File:** `frontend/src/app/services/restaurant.ts:35`
+
+**Problem.** `private apiUrl = 'http://localhost:8000/api';` is hardcoded into the production bundle. Once shipped to Vercel, every browser tries `http://localhost:8000` for API calls — the site is broken with the "directory temporarily unavailable" error. Mild data-leak risk too: if a user happens to run any service on port 8000, the request body and headers reach that service.
+
+**Fix.** Standard Angular pattern.
+- Create `frontend/src/environments/environment.ts` (`apiUrl: 'http://localhost:8000/api'`) and `environment.production.ts` (`apiUrl: 'https://<render-app>.onrender.com/api'`).
+- Configure `fileReplacements` in `angular.json` for the `production` configuration.
+- Replace the hardcoded literal with `import { environment } from '../../environments/environment'; … this.apiUrl = environment.apiUrl;`.
+
+## 18. Tighten CORS — MEDIUM
+
+**File:** `backend/main.py:8-13`
+
+**Problem.** `allow_origins=["*"]`, `allow_methods=["*"]`, `allow_headers=["*"]`. Currently safe (no auth, no cookies, `allow_credentials=False` by default) but a footgun if auth or cookies are ever added. Easier to lock down now while it's a one-line change.
+
+**Fix.**
+```python
+allow_origins=[
+    "https://<your-vercel-domain>",
+    "http://localhost:4200",  # dev
+],
+allow_methods=["GET"],  # the API only serves GET
+allow_headers=["*"],
+```
+
+## 19. Replace cache-key sanitization with a hash — LOW
+
+**File:** `backend/services/cache.py:11-13`
+
+**Problem.** `_cache_path` only replaces `/` and `:`. It does not strip `..`, backslash, null bytes, or absolute-path indicators. Currently safe because every caller passes already-validated input (`AT` country, 4-digit zip, integer radii, SHA-1 hex digests), so no traversal is reachable. But the sanitizer is the wrong defense — any future cache key built from less-validated input (an `amenity` value, a freeform search term) could write outside `.cache/`.
+
+**Fix.** Make the sanitizer collision-proof regardless of input:
+```python
+import hashlib
+
+def _cache_path(key: str) -> Path:
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return CACHE_DIR / f"{digest}.json"
+```
+Cache keys remain deterministic per input string; traversal becomes impossible by construction.
+
+## 21. Impressum — HIGH (Austrian law)
+
+**Why.** Austria's *E-Commerce-Gesetz § 5 (1)* requires every publicly accessible website served from Austria or targeting Austrian users to display an Impressum: full name, postal address, email, and — if applicable — business registration / VAT number. **This applies to non-commercial hobby sites too.** Missing one can earn a warning letter from a *Wettbewerbsverein* with cost recovery in the hundreds of EUR.
+
+**Fix.** Static page or modal at `/impressum`. Minimum content:
+- Name (Vor- und Nachname)
+- Postal address
+- Email
+- *(if applicable)* Firmenbuchnummer / UID-Nummer
+
+Link to it from the footer next to the existing "A field guide to vegan menus" line. Could be a dedicated `app-impressum` route or a small static page in `frontend/public/impressum.html`.
+
+## 22. OSM attribution footer — HIGH (ODbL license)
+
+**Why.** Overpass returns data licensed under the Open Database License (ODbL 1.0). Section 4.3 of the license requires attribution: *"© OpenStreetMap contributors"* with a link to <https://www.openstreetmap.org/copyright> wherever the data is made publicly available. Currently nowhere in the UI or the README.
+
+**Fix.** Add to `app.html` footer:
+
+```html
+<p class="foot-attrib">
+  Restaurant data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.
+</p>
+```
+
+Style it small, sage-toned, sits below the existing "tended in Vienna" line. Also mention in the README "Tech Stack" / "Design Decisions" section.
+
+## 23. Privacy notice — HIGH (GDPR Art. 13)
+
+**Why.** The app processes personal data even without accounts:
+- **IP address** — uvicorn access log records it (personal data under GDPR).
+- **Geolocation coordinates** — radius mode sends lat/lon to the backend.
+- **Search terms / zip codes** — in URL query strings, get logged.
+- **Cache** — extracted dish text from third-party sites stored 1 week (`backend/.cache/`).
+
+Browser permission gates the geolocation data (counts as consent), but a written notice naming everything collected and the hosts as data processors is required by Art. 13.
+
+**Fix.** Static page or modal at `/privacy`. Minimum content:
+- What's collected: search terms, IP (logged ~30 days by Render), geolocation (only when user clicks "Near me", never stored)
+- Purpose: serve the search; no advertising, no profiling
+- Retention: server logs (host's default), 1-week file cache for scan results
+- Third-party processors: Render (backend host), Vercel (frontend host), Google Fonts (CSS), counter.dev (analytics — *if kept; see #20*)
+- Data subject rights (access, deletion, complaint to DSB)
+- Contact email (same as Impressum)
+- *Inline note in radius mode UI*: "Your location is sent to find nearby restaurants. We don't store it."
+
+Link from the footer next to Impressum.
+
+## 20. Lock down third-party assets — LOW
+
+**File:** `frontend/src/index.html:18`
+
+**Problem.** `<script src="https://cdn.counter.dev/script.js" data-id="YOUR-COUNTER-DEV-ID" …>` — no Subresource Integrity hash, and the `data-id` is still the placeholder string from the install snippet (so the analytics is loading-but-not-tracking). Without SRI, a `cdn.counter.dev` compromise becomes supply-chain XSS in your users' browsers.
+
+**Fix.** Either:
+- Replace the placeholder with the real counter.dev ID and add `integrity="sha384-…" crossorigin="anonymous"` (pin to the current published bundle hash), or
+- Remove the script entirely until analytics is actually wanted.
+
+While you're in `index.html`, also add a Content-Security-Policy — either as a `<meta http-equiv="Content-Security-Policy">` tag or via Vercel's `vercel.json` `headers` config. A starting policy: `default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' https://cdn.counter.dev; connect-src 'self' https://<render-domain>;`.
+
+---
+
 ## 10. Cleanup pass (last)
 
 - Search for unreferenced functions/components/imports across `backend/` and `frontend/src/`.
@@ -125,9 +256,14 @@ Build passes (`ng build --configuration development`). Backend module imports cl
 5. ~~#12 UI redesign~~ — done.
 6. ~~#13 pagination~~ — done.
 7. ~~#14 stop control + Overpass resilience~~ — done.
-8. #5 OCR path (backend, isolated) — still pending.
-9. #10 cleanup — still pending.
-10. Deploy: backend → Render, frontend → Vercel.
+8. ~~#15 + #16 SSRF hardening~~ — done.
+9. **#21 Impressum + #22 OSM attribution + #23 privacy notice** — Austrian/EU legal must-do before any public launch.
+10. #17 environment-based `apiUrl` — required for Vercel deploy to work.
+11. #18 CORS lockdown.
+12. #19 cache-key hash + #20 third-party script SRI / CSP.
+13. #5 OCR path (backend, isolated) — still pending.
+14. #10 cleanup (folds in unused `RestaurantCard.index`).
+15. Deploy: backend → Render, frontend → Vercel.
 
 ## Out of scope (confirmed)
 

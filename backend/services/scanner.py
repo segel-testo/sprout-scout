@@ -5,6 +5,7 @@ import httpx
 from services.adapters import foodora, generic, lieferando, pdf
 from services.cache import get_namespaced, set_namespaced
 from services.fallback import no_menu_payload
+from services.safe_fetch import safe_get
 
 
 SCAN_TIMEOUT = 20
@@ -27,7 +28,7 @@ async def _scan_uncached(restaurant_id: str, website: str, restaurant: dict | No
         return no_menu_payload(restaurant_id, restaurant)
 
     headers = {"User-Agent": USER_AGENT, "Accept-Language": "de,en;q=0.8"}
-    async with httpx.AsyncClient(timeout=SCAN_TIMEOUT, follow_redirects=True, headers=headers) as client:
+    async with httpx.AsyncClient(timeout=SCAN_TIMEOUT, follow_redirects=False, headers=headers) as client:
         dishes, delivery_link = await _dispatch(website, client)
 
     if dishes:
@@ -47,10 +48,8 @@ async def _dispatch(website: str, client: httpx.AsyncClient) -> tuple[list[dict]
     if lieferando.is_lieferando_url(website):
         return [], _delivery_link("lieferando", website)
 
-    try:
-        response = await client.get(website)
-        response.raise_for_status()
-    except Exception:
+    response = await safe_get(client, website)
+    if response is None or response.status_code >= 400:
         return [], None
     html = response.text
     final_url = str(response.url)
@@ -73,10 +72,8 @@ async def _dispatch(website: str, client: httpx.AsyncClient) -> tuple[list[dict]
 async def _crawl_menu_links(html: str, base_url: str, client: httpx.AsyncClient) -> list[dict]:
     dishes: list[dict] = []
     for link in generic.find_menu_links(html, base_url):
-        try:
-            response = await client.get(link)
-            response.raise_for_status()
-        except Exception:
+        response = await safe_get(client, link)
+        if response is None or response.status_code >= 400:
             continue
         sub_html = response.text
         dishes += await pdf.scan(sub_html, link, client)

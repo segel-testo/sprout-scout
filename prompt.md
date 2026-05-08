@@ -9,7 +9,7 @@ You are continuing work on **Sprout Scout** at `C:\Vali\coding\sprout-scout`. It
 ## Read these first, in this order
 
 1. `README.md` — full architecture, API contract, design decisions. Authoritative.
-2. `todos.md` — the live work plan. Items 1–4, 6, 8, 9, 11, 12, 13, 14 are done; 5 and 10 are pending. **Read this even if you think you remember the state — it's the source of truth.**
+2. `todos.md` — the live work plan. Items 1–4, 6, 8, 9, 11, 12, 13, 14, 15, 16 are done; 5 and 10 are pending. **Pre-launch security hardening: #15 (SSRF) and #16 (delete unused vegan route) landed; #17–#20 are still open. Pre-launch legal must-do: #21 Impressum + #22 OSM attribution + #23 privacy notice — these block any public launch under Austrian law / GDPR / ODbL.** Read this even if you think you remember the state — it's the source of truth.
 
 Skim, don't memorize. The code is the truth.
 
@@ -24,11 +24,20 @@ Skim, don't memorize. The code is the truth.
 - **Overpass resilience.** `services/overpass._run_query` retries up to 3 attempts with 1s/2s backoff on 429/502/503/504 and `httpx.RequestError`. Persistent failures convert to `HTTPException(503)` at the router. Frontend `EventSource` distinguishes connection-failed-before-any-event from end-of-stream so a backend 503 surfaces as an inline error rather than an indefinite spinner.
 - **Loading spinner.** Replaces the trailing arrow on the CTA during locate / scan; `@keyframes cta-spin` lives in global `styles.scss` (component-scoped keyframes were intermittently not applied), with a `prefers-reduced-motion` override so essential feedback always rotates.
 - **Z-index fix for dropdown over results.** `.control` and `.results-section` both use `animation: rise … both`, which permanently holds `transform: translateY(0)` and creates sibling stacking contexts at z-auto — `.results-section` was painting over the dropdown because it's later in DOM. Fix: explicit `z-index: 2` on `.control`. Field-select `:host` also has `z-index: 50` as belt-and-suspenders.
+- **#15 SSRF hardening landed.** New `services/safe_fetch.py` resolves every outbound URL via `getaddrinfo` and rejects `is_private | is_loopback | is_link_local | is_reserved | is_multicast | is_unspecified` addresses, with manual redirect walking and per-hop revalidation. Wired into `scanner.py` (initial fetch, menu-link crawl) and `adapters/pdf.py` (HEAD + GET for every PDF candidate). `httpx.AsyncClient` switched to `follow_redirects=False`. End-to-end-verified: `scan_restaurant` returns no-menu fallback for metadata IPs, loopback, and RFC1918 addresses. Integration test (`tests.scan_examples`) still passes for the five real-world URLs.
+- **#16 unused `/api/restaurants/{id}/vegan` route deleted.** Zero FE callers. Routes left: list, list-by-radius, scan, scan-by-radius, health.
 
 ## What's pending (from `todos.md`)
 
+- **#21 Impressum** — Austrian *E-Commerce-Gesetz § 5 (1)* requires every publicly accessible site served from / targeting Austrian users to display name + address + email. Applies to non-commercial hobby sites too. Static page or footer modal.
+- **#22 OSM attribution** — ODbL § 4.3 requires "© OpenStreetMap contributors" with a link to <https://www.openstreetmap.org/copyright> wherever Overpass data is surfaced. Currently nowhere.
+- **#23 privacy notice** — GDPR Art. 13. Static page covering: search terms / IP / geolocation, retention, processors (Render, Vercel, Google Fonts, counter.dev if kept), data subject rights, contact.
+- **#17** — move frontend `apiUrl` (`services/restaurant.ts:35`) into Angular `environments/` files; required for Vercel deploy to work.
+- **#18** — restrict `CORSMiddleware` `allow_origins` to the deployed Vercel domain + localhost.
+- **#19** — replace cache-key sanitizer in `services/cache.py` with a SHA-256 hash so future cache keys can't path-traverse.
+- **#20** — add SRI hash to (or remove) the `cdn.counter.dev` script in `index.html`; add a CSP header.
 - **#5** — `zuminderhof.at` likely serves an image-only PDF. Add OCR (`pytesseract` + `pdf2image` + Tesseract + Poppler) **only as a fallback** when `pdfplumber.extract_text()` returns empty/near-empty. If extraction works but no vegan keyword matches, do NOT OCR.
-- **#10** — cleanup pass. Includes deciding whether to delete `GET /api/restaurants/{id}/vegan` (no FE callers since step 1). The `index` input on `RestaurantCard` is also unused since the `Nº` prefix was removed in the redesign — candidate for removal.
+- **#10** — cleanup pass. Folds in the unused `RestaurantCard.index` input.
 
 ## Hard constraints — don't cross these without asking
 
@@ -48,7 +57,7 @@ Skim, don't memorize. The code is the truth.
 
 ## Suggested first move
 
-Open `todos.md`, pick #5 (OCR fallback) or #10 (cleanup). For #5, start by downloading `zuminderhof.at`'s PDF and confirming `pdfplumber.extract_text()` actually returns empty before adding any deps. For #10, grep for callers of `GET /api/restaurants/{id}/vegan` (likely none in FE) and remove the unused `index` input on `RestaurantCard`.
+**Legal first**: #21 Impressum, #22 OSM attribution, #23 privacy notice — these are the actual launch blockers under Austrian law / GDPR / ODbL. Then #17 (environment-based `apiUrl`, otherwise the Vercel build calls `localhost:8000` and the site is dead in production), #18 (CORS lockdown), #19 (cache-key SHA-256), #20 (counter.dev SRI + CSP). After legal + deploy work lands, pick up #5 (OCR fallback) and #10 (cleanup, including the unused `RestaurantCard.index` input).
 
 ```bash
 cd backend && venv/Scripts/python -m tests.scan_examples
