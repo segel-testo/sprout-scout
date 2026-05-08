@@ -114,6 +114,25 @@
   .tab { font-size: 0.95rem; padding: 8px 16px; }
 }
 
+// ── Geolocation privacy note (radius mode) ───────────────────────
+.geo-note {
+  margin: -4px 0 14px;
+  font-size: 0.78rem;
+  color: var(--moss);
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  animation: rise var(--t-mid) var(--ease) both;
+
+  .geo-note-mark {
+    color: var(--forest);
+    font-weight: 700;
+    font-size: 1.1em;
+    line-height: 0;
+  }
+}
+
 // ── Form grid — single 3-column layout for both modes ────────────
 .form,
 .radius-form {

@@ -67,9 +67,34 @@
 
   <footer class="foot">
     <span class="foot-rule" aria-hidden="true"></span>
-    <p>
-      <em>A field guide to vegan menus.</em>
-      Tended in Vienna · {{ year }}.
-    </p>
+    <div class="foot-text">
+      <p class="foot-tagline">
+        <em>A field guide to vegan menus.</em>
+        Tended in Vienna · {{ year }}.
+      </p>
+      <p class="foot-attrib">
+        Restaurant data ©
+        <a
+          href="https://www.openstreetmap.org/copyright"
+          target="_blank"
+          rel="noopener noreferrer"
+          >OpenStreetMap contributors</a
+        >.
+      </p>
+      <nav class="foot-links" aria-label="Legal">
+        <button type="button" class="foot-link" (click)="openLegal('impressum')">
+          Impressum
+        </button>
+        <span class="foot-sep" aria-hidden="true">·</span>
+        <button type="button" class="foot-link" (click)="openLegal('privacy')">
+          Privacy
+        </button>
+      </nav>
+    </div>
   </footer>
 </div>
+
+@if (legalOpen(); as kind) {
+  <app-legal-modal [kind]="kind" (closed)="closeLegal()" />
+}
+

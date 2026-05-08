@@ -1,0 +1,137 @@
+<div
+  class="backdrop"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="'legal-title-' + kind"
+  (click)="onBackdrop($event)"
+>
+  <article class="panel" role="document">
+    <header class="panel-head">
+      <h2 class="panel-title" [id]="'legal-title-' + kind">
+        @if (kind === 'impressum') {
+          Impressum
+        } @else {
+          Privacy notice
+        }
+      </h2>
+      <button
+        type="button"
+        class="close-btn"
+        aria-label="Close"
+        (click)="close()"
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path
+            d="M3 3 L13 13 M13 3 L3 13"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
+        </svg>
+      </button>
+    </header>
+
+    <div class="panel-body">
+      @if (kind === 'impressum') {
+        <p class="lede"><em>Information gemäß § 5 ECG / § 25 MedienG.</em></p>
+
+        <dl class="entry">
+          <dt>Name</dt>
+          <dd>Valentin Röcklinger</dd>
+
+          <dt>Anschrift</dt>
+          <dd>
+            K. Elisabethstrasse 13<br />
+            2340 Mödling<br />
+            Austria
+          </dd>
+
+          <dt>E-Mail</dt>
+          <dd>
+            <a href="mailto:heislsheimen@gmail.com">heislsheimen@gmail.com</a>
+          </dd>
+        </dl>
+
+        <p class="note">
+          Sprout Scout is a non-commercial hobby project. No business
+          registration or VAT number applies.
+        </p>
+      } @else {
+        <p class="lede">
+          <em>We respect your privacy.</em> What follows is everything Sprout
+          Scout sees when you use it, and why.
+        </p>
+
+        <h3>What we process</h3>
+        <ul>
+          <li>
+            <strong>Search terms</strong> — the zip code or geolocation you
+            enter, used only to fulfil the request.
+          </li>
+          <li>
+            <strong>IP address</strong> — automatically logged by our hosting
+            provider for security and troubleshooting; retention follows
+            their default (~30 days).
+          </li>
+          <li>
+            <strong>Geolocation</strong> — only when you click <em>Near me</em>
+            and grant your browser's location permission. The coordinates are
+            sent to the server to find restaurants near you and are never
+            stored.
+          </li>
+          <li>
+            <strong>Cached scan results</strong> — extracted public menu data
+            from third-party restaurant websites, kept for up to 1 week to
+            avoid repeated requests.
+          </li>
+        </ul>
+
+        <h3>Why</h3>
+        <p>
+          To serve the search. No advertising, no profiling, no cross-site
+          tracking, no resale of data.
+        </p>
+
+        <h3>Third-party processors</h3>
+        <ul>
+          <li>
+            <strong>Codeberg e.V.</strong> — frontend hosting via Codeberg
+            Pages (Berlin, Germany).
+          </li>
+          <li>
+            <strong>Render</strong> — backend hosting (United States).
+            Transfers to a US processor are covered by the EU–U.S. Data
+            Privacy Framework / Standard Contractual Clauses.
+          </li>
+          <li>
+            <strong>Google Fonts</strong> — typography (loaded from Google's
+            CDN).
+          </li>
+          <li>
+            <strong>OpenStreetMap / Overpass API</strong> — restaurant
+            directory data (ODbL-licensed, public).
+          </li>
+        </ul>
+
+        <h3>Your rights</h3>
+        <p>
+          Under GDPR Articles 15–21 you may request access to, correction of,
+          deletion or restriction of your data, object to processing, and
+          receive a copy of any data we hold. You may also lodge a complaint
+          with the Austrian data protection authority
+          (<a
+            href="https://www.dsb.gv.at/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Datenschutzbehörde, dsb.gv.at</a
+          >).
+        </p>
+
+        <h3>Contact</h3>
+        <p>
+          <a href="mailto:heislsheimen@gmail.com">heislsheimen@gmail.com</a>
+        </p>
+      }
+    </div>
+  </article>
+</div>

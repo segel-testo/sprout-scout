@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Restaurant {
   id: string;
@@ -32,7 +33,7 @@ export type ScanEvent =
 
 @Injectable({ providedIn: 'root' })
 export class RestaurantService {
-  private apiUrl = 'http://localhost:8000/api';
+  private apiUrl = environment.apiUrl;
 
   scanStream(zipCode: string, amenity?: string): Observable<ScanEvent> {
     const params = new URLSearchParams({ zip_code: zipCode, country: 'AT' });

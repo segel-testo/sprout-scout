@@ -56,7 +56,7 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Web scraping | `BeautifulSoup` + `httpx` |
 | Streaming | Server-Sent Events (FastAPI `StreamingResponse`) |
 | Caching | File-based (`backend/.cache/`, 1 week TTL) |
-| Hosting (FE) | Vercel |
+| Hosting (FE) | Codeberg Pages (Berlin, DE) |
 | Hosting (BE) | Render |
 
 ---
@@ -179,8 +179,93 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 ## Next Steps
 
 - [ ] Deploy backend to Render (verify SSE works through Render's proxy; set `X-Accel-Buffering: no` is already emitted)
-- [ ] Deploy frontend to Vercel
+- [ ] Deploy frontend to Codeberg Pages (see Deployment section below)
 - [ ] Browser smoke test of the toggle UX (click through both modes, verify empty-state + delivery-link buttons)
+
+---
+
+## Deployment
+
+### Frontend → Codeberg Pages
+
+[Codeberg Pages](https://docs.codeberg.org/codeberg-pages/) serves static
+content from a `pages` branch (or a repo named `pages`).
+
+#### One-time setup (do this once before the first deploy)
+
+**1. Codeberg account + repo.**
+- Sign up at <https://codeberg.org>.
+- Create a new public repo, e.g. `sprout-scout`. Source code stays on
+  GitHub; Codeberg only needs the built artefact.
+
+**2. SSH key for push access.**
+- Generate or reuse an SSH keypair (`ssh-keygen -t ed25519` if you don't
+  have one). On Windows, `~/.ssh/id_ed25519.pub` lives at
+  `C:\Users\<you>\.ssh\id_ed25519.pub`.
+- In Codeberg: *avatar → Settings → SSH / GPG Keys → Add Key*. Paste the
+  contents of the `.pub` file.
+- Test: `ssh -T git@codeberg.org` should reply *"Hi `<your-user>`!"*.
+
+**3. Bake `.domains` into every build.** In the served output, Codeberg
+looks for a plain-text file named `.domains` listing the custom domains
+you want it to serve. Put it in `frontend/public/.domains` so the
+Angular build copies it into `dist/frontend/browser/` automatically:
+```
+www.sprout-scout.at
+sprout-scout.at
+```
+*(Remove the apex line if you only want `www`.)*
+
+**4. DNS records** at your registrar for `sprout-scout.at`:
+- `CNAME` `www` → `<your-user>.codeberg.page`
+- `A` / `AAAA` for the apex `sprout-scout.at` → Codeberg's published IPs
+  (see [their docs](https://docs.codeberg.org/codeberg-pages/custom-domain/)
+  — IPs may change over time, so consult the docs rather than copying a
+  value here).
+
+**5. Set the deploy remote** (used by the deploy script):
+```powershell
+$env:CODEBERG_REMOTE = "git@codeberg.org:<your-user>/sprout-scout.git"
+```
+Persist across sessions with `[Environment]::SetEnvironmentVariable(
+'CODEBERG_REMOTE', '...', 'User')` if you want.
+
+#### Deploy
+
+```powershell
+cd frontend
+.\scripts\deploy-codeberg.ps1
+```
+
+The script runs `ng build --configuration production` and force-pushes
+`dist/frontend/browser/` to the `pages` branch of your Codeberg repo.
+Codeberg auto-provisions a Let's Encrypt certificate once DNS resolves
+to its servers.
+
+The site is then live at `https://www.sprout-scout.at/` (custom domain)
+and at `https://<your-user>.codeberg.page/sprout-scout/` (default URL).
+
+### Backend → Render
+
+Render free tier serves a `Dockerfile` or a Python web service. The custom
+domain `api.sprout-scout.at` is wired in *Settings → Custom Domains* and
+points at Render via a `CNAME` record at the DNS provider. Render handles
+the TLS cert automatically.
+
+**Required environment variables on Render:**
+
+| Variable | Value |
+|----------|-------|
+| `ALLOWED_ORIGINS` | `https://www.sprout-scout.at,https://sprout-scout.at` |
+
+`ALLOWED_ORIGINS` is a comma-separated list of frontend origins permitted
+to call the API. Without it, the backend defaults to
+`http://localhost:4200` only — production browsers would be blocked by
+CORS. If you also want to test from the Codeberg default URL before DNS
+flips, append `,https://<your-user>.codeberg.page` to the value.
+
+If the API URL changes, edit `frontend/src/environments/environment.production.ts`
+and rebuild.
 
 ---
 
@@ -198,3 +283,4 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 - **Stop control.** Abort is purely a frontend-driven `EventSource.close()` — the backend's `_stream_scan` already polled `request.is_disconnected()` for keepalive purposes, so the same path cancels pending scan tasks cleanly when the user hits Stop. Already-found results stay rendered.
 - **SSRF guard on outbound fetches.** OSM is publicly editable, so any `website` tag is attacker-controllable. `services/safe_fetch.py` is the chokepoint for every outbound HTTP request the scanner makes: it requires `http`/`https`, rejects URLs whose host (literal IP or DNS-resolved address) falls into `is_private | is_loopback | is_link_local | is_reserved | is_multicast | is_unspecified`, and walks redirects manually so each `Location` hop is re-validated. Cloud-metadata endpoints (`169.254.169.254`), loopback, and RFC1918 ranges are unreachable from the scanner. `httpx.AsyncClient` is configured with `follow_redirects=False` to enforce this — the auto-follow path would have bypassed validation.
 - **No login required.** Public tool.
+- **Data attribution.** Restaurant directory data comes from OpenStreetMap via the Overpass API and is licensed under the [Open Database License (ODbL 1.0)](https://opendatacommons.org/licenses/odbl/). Per § 4.3 of the license, the UI footer carries the required "© OpenStreetMap contributors" attribution with a link to <https://www.openstreetmap.org/copyright>.

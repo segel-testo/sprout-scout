@@ -133,32 +133,25 @@ Residual risk: DNS-rebinding window between `_resolve_safe` and the actual `clie
 
 Routes after the change: `/api/restaurants`, `/api/restaurants-by-radius`, `/api/restaurants/scan`, `/api/restaurants/scan-by-radius`, `/health`. The unused `RestaurantCard.index` input still pending — folded into #10 cleanup.
 
-## 17. Move frontend `apiUrl` into Angular environment files — MEDIUM
+## ✅ 17. Move frontend `apiUrl` into Angular environment files — DONE
 
-**File:** `frontend/src/app/services/restaurant.ts:35`
+Standard Angular environment pattern in place. Production bundle no longer leaks `localhost:8000` (verified by `grep`).
 
-**Problem.** `private apiUrl = 'http://localhost:8000/api';` is hardcoded into the production bundle. Once shipped to Vercel, every browser tries `http://localhost:8000` for API calls — the site is broken with the "directory temporarily unavailable" error. Mild data-leak risk too: if a user happens to run any service on port 8000, the request body and headers reach that service.
+- New `frontend/src/environments/environment.ts` — `{ production: false, apiUrl: 'http://localhost:8000/api' }`.
+- New `frontend/src/environments/environment.production.ts` — `{ production: true, apiUrl: 'https://api.sprout-scout.at/api' }`. Subdomain split (frontend on `www.sprout-scout.at` via Vercel, backend on `api.sprout-scout.at` via Render with a CNAME). Reason for not collapsing onto a single Vercel-rewrite origin: SSE streams need unbuffered transport, and an extra Vercel proxy hop in front of the live scan stream is asking for buffering / connection-drop trouble.
+- `angular.json`: production configuration gained a `fileReplacements` entry swapping `environment.ts` for `environment.production.ts`. Also bumped the `anyComponentStyle` budget from 4kB warn / 8kB error to 12kB warn / 20kB error — pre-existing issue, `search.scss` had grown to 12kB over successive redesigns and was blocking the prod build entirely.
+- `services/restaurant.ts`: hardcoded literal replaced with `private apiUrl = environment.apiUrl;` (import from `'../../environments/environment'`).
+- Deploy note: when the Render service is created, point its custom-domain field at `api.sprout-scout.at` and add the matching CNAME in your DNS. If you change the API host, only `environment.production.ts` needs a one-line edit.
 
-**Fix.** Standard Angular pattern.
-- Create `frontend/src/environments/environment.ts` (`apiUrl: 'http://localhost:8000/api'`) and `environment.production.ts` (`apiUrl: 'https://<render-app>.onrender.com/api'`).
-- Configure `fileReplacements` in `angular.json` for the `production` configuration.
-- Replace the hardcoded literal with `import { environment } from '../../environments/environment'; … this.apiUrl = environment.apiUrl;`.
+Dev build: 1.65 MB (unoptimized). Prod build: 310 kB raw / 80 kB gzipped main bundle, zero `localhost` strings in the output.
 
-## 18. Tighten CORS — MEDIUM
+## ✅ 18. Tighten CORS — DONE
 
-**File:** `backend/main.py:8-13`
+CORS is now env-driven so the production origin list lives on Render rather than baked into the image.
 
-**Problem.** `allow_origins=["*"]`, `allow_methods=["*"]`, `allow_headers=["*"]`. Currently safe (no auth, no cookies, `allow_credentials=False` by default) but a footgun if auth or cookies are ever added. Easier to lock down now while it's a one-line change.
-
-**Fix.**
-```python
-allow_origins=[
-    "https://<your-vercel-domain>",
-    "http://localhost:4200",  # dev
-],
-allow_methods=["GET"],  # the API only serves GET
-allow_headers=["*"],
-```
+- `backend/main.py`: reads `ALLOWED_ORIGINS` (comma-separated). Defaults to `http://localhost:4200` for dev so a fresh checkout works without env config. `allow_methods=["GET"]` — every public route is GET-only. `allow_headers=["*"]` is fine since `allow_credentials` stays at its default (`False`); no cookies, no auth, no preflight surface to widen.
+- Production env var on Render (documented in README *Backend → Render*): `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Append `,https://<user>.codeberg.page` while DNS is propagating if you want to smoke-test the default Codeberg URL.
+- Verified: backend imports cleanly with the default origin list, env var parsing trims whitespace and drops empty entries, integration regression (`tests.scan_examples`) still produces the five expected outcomes.
 
 ## 19. Replace cache-key sanitization with a hash — LOW
 
@@ -176,52 +169,22 @@ def _cache_path(key: str) -> Path:
 ```
 Cache keys remain deterministic per input string; traversal becomes impossible by construction.
 
-## 21. Impressum — HIGH (Austrian law)
+## ✅ 21 + 22 + 23. Legal pages (Impressum, OSM attribution, Privacy) — DONE
 
-**Why.** Austria's *E-Commerce-Gesetz § 5 (1)* requires every publicly accessible website served from Austria or targeting Austrian users to display an Impressum: full name, postal address, email, and — if applicable — business registration / VAT number. **This applies to non-commercial hobby sites too.** Missing one can earn a warning letter from a *Wettbewerbsverein* with cost recovery in the hundreds of EUR.
+Audit-driven legal triple shipped via a single non-disruptive modal pattern. The search flow is untouched — no router, no URL state, no surface changes to the existing controls.
 
-**Fix.** Static page or modal at `/impressum`. Minimum content:
-- Name (Vor- und Nachname)
-- Postal address
-- Email
-- *(if applicable)* Firmenbuchnummer / UID-Nummer
+- New `LegalModal` component (`frontend/src/app/components/legal-modal/`) — single component, `kind: 'impressum' | 'privacy'` input, emits `closed`. Backdrop click + Esc + close button. Sage-bordered paper panel, soft drop shadow, scrollable body with `max-height: calc(100vh - 48px)` so short viewports don't trap content.
+- `App` (`app.ts`) gained a `legalOpen = signal<LegalKind | null>(null)` plus `openLegal` / `closeLegal`. Modal renders only when open.
+- `app.html` footer redesigned into a right-aligned `.foot-text` column with three lines:
+  1. existing tagline (`A field guide to vegan menus · {{ year }}.`),
+  2. **OSM attribution** — `Restaurant data © OpenStreetMap contributors.` with the required link to `openstreetmap.org/copyright` (ODbL § 4.3),
+  3. footer nav with `Impressum · Privacy` buttons that open the modal.
+- **Impressum content** — Information gemäß § 5 ECG / § 25 MedienG: Valentin Röcklinger, K. Elisabethstrasse 13, 2340 Mödling, Austria, heislsheimen@gmail.com. Marked as non-commercial hobby project (no Firmenbuch/UID).
+- **Privacy content** — GDPR Art. 13 notice: search terms / IP / geolocation / cached scan results, processors (Render, Vercel, Google Fonts, OSM/Overpass), GDPR Art. 15–21 rights with Datenschutzbehörde complaint link, contact email.
+- `search.html` + `.scss` — radius-mode now shows a small inline `geo-note` directly under the tabs: *"Your location is sent to find nearby restaurants. We don't store it."* So the user reads the consent statement before they hit Search.
+- `README.md` Design Decisions section — new "Data attribution" bullet documenting the ODbL license and its § 4.3 attribution requirement.
 
-Link to it from the footer next to the existing "A field guide to vegan menus" line. Could be a dedicated `app-impressum` route or a small static page in `frontend/public/impressum.html`.
-
-## 22. OSM attribution footer — HIGH (ODbL license)
-
-**Why.** Overpass returns data licensed under the Open Database License (ODbL 1.0). Section 4.3 of the license requires attribution: *"© OpenStreetMap contributors"* with a link to <https://www.openstreetmap.org/copyright> wherever the data is made publicly available. Currently nowhere in the UI or the README.
-
-**Fix.** Add to `app.html` footer:
-
-```html
-<p class="foot-attrib">
-  Restaurant data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.
-</p>
-```
-
-Style it small, sage-toned, sits below the existing "tended in Vienna" line. Also mention in the README "Tech Stack" / "Design Decisions" section.
-
-## 23. Privacy notice — HIGH (GDPR Art. 13)
-
-**Why.** The app processes personal data even without accounts:
-- **IP address** — uvicorn access log records it (personal data under GDPR).
-- **Geolocation coordinates** — radius mode sends lat/lon to the backend.
-- **Search terms / zip codes** — in URL query strings, get logged.
-- **Cache** — extracted dish text from third-party sites stored 1 week (`backend/.cache/`).
-
-Browser permission gates the geolocation data (counts as consent), but a written notice naming everything collected and the hosts as data processors is required by Art. 13.
-
-**Fix.** Static page or modal at `/privacy`. Minimum content:
-- What's collected: search terms, IP (logged ~30 days by Render), geolocation (only when user clicks "Near me", never stored)
-- Purpose: serve the search; no advertising, no profiling
-- Retention: server logs (host's default), 1-week file cache for scan results
-- Third-party processors: Render (backend host), Vercel (frontend host), Google Fonts (CSS), counter.dev (analytics — *if kept; see #20*)
-- Data subject rights (access, deletion, complaint to DSB)
-- Contact email (same as Impressum)
-- *Inline note in radius mode UI*: "Your location is sent to find nearby restaurants. We don't store it."
-
-Link from the footer next to Impressum.
+Build passes (`ng build --configuration development`).
 
 ## 20. Lock down third-party assets — LOW
 
@@ -257,13 +220,13 @@ While you're in `index.html`, also add a Content-Security-Policy — either as a
 6. ~~#13 pagination~~ — done.
 7. ~~#14 stop control + Overpass resilience~~ — done.
 8. ~~#15 + #16 SSRF hardening~~ — done.
-9. **#21 Impressum + #22 OSM attribution + #23 privacy notice** — Austrian/EU legal must-do before any public launch.
-10. #17 environment-based `apiUrl` — required for Vercel deploy to work.
-11. #18 CORS lockdown.
+9. ~~#21 Impressum + #22 OSM attribution + #23 privacy notice~~ — done.
+10. ~~#17 environment-based `apiUrl`~~ — done.
+11. ~~#18 CORS lockdown~~ — done.
 12. #19 cache-key hash + #20 third-party script SRI / CSP.
 13. #5 OCR path (backend, isolated) — still pending.
 14. #10 cleanup (folds in unused `RestaurantCard.index`).
-15. Deploy: backend → Render, frontend → Vercel.
+15. Deploy: backend → Render (api.sprout-scout.at), frontend → Codeberg Pages (www.sprout-scout.at). See README "Deployment" section + `frontend/scripts/deploy-codeberg.ps1`.
 
 ## Out of scope (confirmed)
 

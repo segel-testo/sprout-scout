@@ -118,13 +118,22 @@
   margin-top: 96px;
   padding-top: 28px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 18px;
 
   .foot-rule {
     flex: 1;
     height: 1px;
+    margin-top: 10px;
     background: linear-gradient(to right, transparent, var(--sage), transparent);
+  }
+
+  .foot-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
   }
 
   p {
@@ -132,6 +141,7 @@
     color: var(--moss);
     letter-spacing: 0.02em;
     white-space: nowrap;
+    margin: 0;
 
     em {
       font-family: var(--display);
@@ -141,10 +151,66 @@
       margin-right: 6px;
     }
   }
+
+  .foot-attrib {
+    font-size: 0.76rem;
+
+    a {
+      color: var(--moss);
+      border-bottom: 1px dashed var(--sage);
+      transition:
+        color var(--t-fast) var(--ease),
+        border-color var(--t-fast) var(--ease);
+
+      &:hover {
+        color: var(--forest);
+        border-bottom-color: var(--moss);
+      }
+    }
+  }
+
+  .foot-links {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .foot-link {
+    font-size: 0.78rem;
+    color: var(--moss);
+    letter-spacing: 0.02em;
+    padding: 0;
+    border-bottom: 1px dashed var(--sage);
+    transition:
+      color var(--t-fast) var(--ease),
+      border-color var(--t-fast) var(--ease);
+
+    &:hover {
+      color: var(--forest);
+      border-bottom-color: var(--moss);
+    }
+
+    &:focus-visible {
+      outline: 2px dashed var(--forest);
+      outline-offset: 2px;
+      border-radius: 1px;
+    }
+  }
+
+  .foot-sep {
+    font-size: 0.78rem;
+    color: var(--sage);
+  }
 }
 
 @media (max-width: 540px) {
+  .foot {
+    align-items: flex-start;
+  }
   .foot p { white-space: normal; font-size: 0.78rem; }
+  .foot .foot-text { align-items: flex-end; }
+  .foot .foot-attrib { font-size: 0.74rem; }
 }
 
 // ── Page-load entrance ───────────────────────────────────────────
