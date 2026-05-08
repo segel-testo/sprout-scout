@@ -1,12 +1,21 @@
-<div class="search-page">
-  <header>
-    <h1>Sprout Scout</h1>
-    <p>Find vegan dishes at restaurants near you</p>
-  </header>
+<section class="hero">
+  <h1 class="hero-title">
+    Find what's <em class="accent">growing</em>
+    <br/>
+    on the menu, near you.
+  </h1>
+  <p class="hero-sub">
+    A live botanical scan of restaurants in your neighbourhood —
+    we read the menus so you don't have to.
+  </p>
+</section>
 
-  <div class="mode-tabs" role="tablist">
+<section class="control" aria-label="Search controls">
+  <!-- Editorial tabs -->
+  <div class="tabs" role="tablist">
     <button
       role="tab"
+      class="tab"
       [class.active]="mode() === 'zip'"
       [attr.aria-selected]="mode() === 'zip'"
       (click)="setMode('zip')"
@@ -14,8 +23,10 @@
     >
       By zip
     </button>
+    <span class="tab-sep" aria-hidden="true"></span>
     <button
       role="tab"
+      class="tab"
       [class.active]="mode() === 'radius'"
       [attr.aria-selected]="mode() === 'radius'"
       (click)="setMode('radius')"
@@ -25,87 +36,232 @@
     </button>
   </div>
 
+  <!-- Search form -->
   @if (mode() === 'zip') {
-    <div class="search-box">
-      <input
-        type="text"
-        [(ngModel)]="zipCode"
-        placeholder="Enter zip code (e.g. 1010)"
-        maxlength="4"
-        (keyup.enter)="search()"
-      />
-      <select class="amenity-select" [(ngModel)]="selectedAmenity" title="Filter by amenity">
-        @for (opt of amenityOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.label }}</option>
+    <div class="form" role="group">
+      <!-- Zip input -->
+      <label class="field zip-field">
+        <span class="field-label">Zip code</span>
+        <span class="field-control">
+          <input
+            class="field-value"
+            type="text"
+            [(ngModel)]="zipCode"
+            placeholder="e.g. 1010"
+            maxlength="4"
+            inputmode="numeric"
+            (keyup.enter)="search()"
+          />
+        </span>
+      </label>
+
+      <!-- Custom amenity dropdown -->
+      <div class="field amenity-field">
+        <span class="field-label">Filter</span>
+        <app-field-select
+          [options]="amenityOptions"
+          [(value)]="selectedAmenity"
+          ariaLabel="Filter by amenity"
+        />
+      </div>
+
+      <button
+        class="cta"
+        [class.is-stop]="loading()"
+        (click)="loading() ? stop() : search()"
+        type="button"
+      >
+        <span class="cta-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 22 C 12 16, 12 13, 12 10" stroke="#C8E0BA" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+            <path d="M12 13 C 6 13, 3 9, 3 4 C 7 4, 12 7, 12 13 Z" fill="#C8E0BA"/>
+            <path d="M12 10 C 18 10, 21 6, 21 1 C 17 1, 12 4, 12 10 Z" fill="#FBF8F1" opacity="0.85"/>
+          </svg>
+        </span>
+        @if (loading()) {
+          <span>Stop</span>
+        } @else {
+          <span>Begin scan</span>
         }
-      </select>
-      <select disabled title="More countries coming soon">
-        <option value="AT">Austria</option>
-      </select>
-      <button (click)="search()" [disabled]="loading()">
-        {{ loading() ? 'Searching...' : 'Search' }}
+        @if (loading()) {
+          <span class="cta-spinner" aria-hidden="true"></span>
+        } @else {
+          <span class="cta-nib" aria-hidden="true">
+            <svg viewBox="0 0 14 14">
+              <path d="M1 13 L13 1 M9 1 L13 1 L13 5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        }
       </button>
     </div>
   } @else {
-    <div class="search-box radius-row">
-      <div class="radius-pills" role="radiogroup" aria-label="Search radius">
-        @for (opt of radiusOptions; track opt.value) {
-          <button
-            type="button"
-            role="radio"
-            [class.active]="radius() === opt.value"
-            [attr.aria-checked]="radius() === opt.value"
-            (click)="setRadius(opt.value)"
-          >
-            {{ opt.label }}
-          </button>
-        }
+    <div class="form radius-form" role="group">
+      <!-- Radius selector -->
+      <div class="field radius-field">
+        <span class="field-label">Radius</span>
+        <div class="radius-pills" role="radiogroup" aria-label="Search radius">
+          @for (opt of radiusOptions; track opt.value) {
+            <button
+              type="button"
+              role="radio"
+              class="radius-pill"
+              [class.active]="radius() === opt.value"
+              [attr.aria-checked]="radius() === opt.value"
+              (click)="setRadius(opt.value)"
+            >
+              <span class="badge-rings" aria-hidden="true">
+                <svg viewBox="0 0 28 28">
+                  <circle cx="14" cy="14" r="11" stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.35"/>
+                  <circle cx="14" cy="14" r="7"  stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.55"/>
+                  <circle cx="14" cy="14" r="3"  stroke="currentColor" stroke-width="0.8" fill="none" opacity="0.85"/>
+                  <circle cx="14" cy="14" r="1.4" fill="currentColor"/>
+                </svg>
+              </span>
+              <span class="badge-text">
+                <span class="badge-num">{{ opt.label }}</span>
+                <span class="badge-unit">{{ opt.sub }}</span>
+              </span>
+            </button>
+          }
+        </div>
       </div>
-      <select class="amenity-select" [(ngModel)]="selectedAmenity" title="Filter by amenity">
-        @for (opt of amenityOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.label }}</option>
-        }
-      </select>
-      <button (click)="search()" [disabled]="loading() || geoStatus() === 'locating'">
+
+      <!-- Custom amenity dropdown -->
+      <div class="field amenity-field">
+        <span class="field-label">Filter</span>
+        <app-field-select
+          [options]="amenityOptions"
+          [(value)]="selectedAmenity"
+          ariaLabel="Filter by amenity"
+        />
+      </div>
+
+      <button
+        class="cta"
+        [class.is-stop]="loading()"
+        (click)="loading() ? stop() : search()"
+        [disabled]="geoStatus() === 'locating'"
+        type="button"
+      >
+        <span class="cta-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 22 C 12 16, 12 13, 12 10" stroke="#C8E0BA" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+            <path d="M12 13 C 6 13, 3 9, 3 4 C 7 4, 12 7, 12 13 Z" fill="#C8E0BA"/>
+            <path d="M12 10 C 18 10, 21 6, 21 1 C 17 1, 12 4, 12 10 Z" fill="#FBF8F1" opacity="0.85"/>
+          </svg>
+        </span>
         @if (geoStatus() === 'locating') {
-          <span class="spinner spinner-on-dark"></span>
-          <span>Locating…</span>
+          <span class="dotty">Locating</span>
         } @else if (loading()) {
-          <span>Searching...</span>
+          <span>Stop</span>
         } @else {
-          <span>Search</span>
+          <span>Begin scan</span>
+        }
+        @if (geoStatus() === 'locating' || loading()) {
+          <span class="cta-spinner" aria-hidden="true"></span>
+        } @else {
+          <span class="cta-nib" aria-hidden="true">
+            <svg viewBox="0 0 14 14">
+              <path d="M1 13 L13 1 M9 1 L13 1 L13 5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
         }
       </button>
     </div>
   }
+</section>
 
-  @if (loading() && scanProgress(); as p) {
-    <div class="scan-progress">
-      <span class="spinner"></span>
-      <span>Scanning {{ p.scanned }} / {{ p.total }} restaurants...</span>
-      @if (scanCapped()) {
-        <span class="cap-note">(limited to first {{ p.total }})</span>
-      } @else if (p.total > 50) {
-        <span class="cap-note">large area — this may take a few minutes</span>
-      }
+<!-- Live scan -->
+@if (loading() && scanProgress(); as p) {
+  <section class="scan" aria-live="polite">
+    <div class="scan-count">
+      <span class="scan-num">{{ p.scanned }}</span>
+      <span class="scan-slash">/</span>
+      <span class="scan-tot">{{ p.total }}</span>
     </div>
-  }
+    <p class="scan-caption">
+      <em>reading menus</em>
+      @if (scanCapped()) {
+        · limited to first {{ p.total }}
+      } @else if (p.total > 50) {
+        · large area, may take a few minutes
+      }
+    </p>
+    <div class="scan-bar" [style.--pct]="p.total ? (p.scanned / p.total) : 0">
+      <span class="scan-bar-fill"></span>
+    </div>
+  </section>
+}
 
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
+<!-- Errors / empty states -->
+@if (error()) {
+  <section class="notice">
+    <svg class="notice-mark" viewBox="0 0 32 32" aria-hidden="true">
+      <path d="M16 28 C 16 22, 16 18, 16 14" stroke="#A14B2A" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <path d="M16 18 C 9 18, 5 13, 5 7 C 11 7, 16 11, 16 18 Z" fill="#A14B2A" opacity="0.7"/>
+      <path d="M16 14 C 23 14, 27 9, 27 3 C 21 3, 16 7, 16 14 Z" fill="#A14B2A" opacity="0.4"/>
+    </svg>
+    <p class="notice-text"><em>{{ error() }}</em></p>
     @if (mode() === 'radius' && lastScanWasEmpty() && suggestedNextRadiusLabel) {
-      <button class="suggest-btn" type="button" (click)="tryLargerRadius()">
+      <button class="link-btn" type="button" (click)="tryLargerRadius()">
         Try {{ suggestedNextRadiusLabel }}
+        <span class="arrow">→</span>
       </button>
     }
-  }
+  </section>
+}
 
-  <div class="results">
-    @for (item of items(); track item.restaurant.id) {
-      <app-restaurant-card
-        [restaurant]="item.restaurant"
-        [scan]="item.scan"
-      />
+<!-- Results -->
+@if (items().length > 0) {
+  <section class="results-section">
+    <header class="results-head">
+      <span class="results-count">
+        <span class="numeral">{{ items().length }}</span>
+        <span>{{ items().length === 1 ? 'place' : 'places' }} with vegan dishes</span>
+      </span>
+    </header>
+
+    <ol class="results">
+      @for (item of pagedItems(); track item.restaurant.id) {
+        <app-restaurant-card
+          [restaurant]="item.restaurant"
+          [scan]="item.scan"
+        />
+      }
+    </ol>
+
+    @if (totalPages() > 1) {
+      <nav class="pagination" aria-label="Results pages">
+        <button
+          class="page-btn page-arrow"
+          type="button"
+          (click)="setPage(currentPage() - 1)"
+          [disabled]="currentPage() === 1"
+          aria-label="Previous page"
+        >←</button>
+
+        @for (p of pageNumbers(); track $index) {
+          @if (p === '…') {
+            <span class="page-ellipsis" aria-hidden="true">…</span>
+          } @else {
+            <button
+              class="page-btn"
+              type="button"
+              [class.active]="p === currentPage()"
+              [attr.aria-current]="p === currentPage() ? 'page' : null"
+              (click)="setPage(p)"
+            >{{ p }}</button>
+          }
+        }
+
+        <button
+          class="page-btn page-arrow"
+          type="button"
+          (click)="setPage(currentPage() + 1)"
+          [disabled]="currentPage() === totalPages()"
+          aria-label="Next page"
+        >→</button>
+      </nav>
     }
-  </div>
-</div>
+  </section>
+}

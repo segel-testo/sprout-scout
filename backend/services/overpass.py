@@ -1,6 +1,9 @@
+import asyncio
 import httpx
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+TRANSIENT_STATUSES = {429, 502, 503, 504}
+MAX_ATTEMPTS = 3
 
 
 FOOD_AMENITIES = ["restaurant", "cafe", "fast_food", "pub", "bar", "biergarten", "food_court", "ice_cream"]
@@ -37,10 +40,26 @@ async def _run_query(query: str) -> list[dict]:
         "User-Agent": "SproutScout/0.1 (https://github.com/valroeck/sprout-scout)",
         "Accept": "application/json",
     }
-    async with httpx.AsyncClient(timeout=30, headers=headers) as client:
-        response = await client.post(OVERPASS_URL, data={"data": query})
-        response.raise_for_status()
-        data = response.json()
+
+    data = None
+    for attempt in range(MAX_ATTEMPTS):
+        try:
+            async with httpx.AsyncClient(timeout=30, headers=headers) as client:
+                response = await client.post(OVERPASS_URL, data={"data": query})
+
+            if response.status_code in TRANSIENT_STATUSES and attempt < MAX_ATTEMPTS - 1:
+                await asyncio.sleep(1 + attempt)
+                continue
+
+            response.raise_for_status()
+            data = response.json()
+            break
+        except httpx.RequestError:
+            if attempt == MAX_ATTEMPTS - 1:
+                raise
+            await asyncio.sleep(1 + attempt)
+
+    assert data is not None  # for the type checker; raise above guarantees this
 
     restaurants = []
     for element in data.get("elements", []):

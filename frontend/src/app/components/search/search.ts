@@ -1,8 +1,9 @@
-import { Component, OnDestroy, signal } from '@angular/core';
+import { Component, OnDestroy, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { Restaurant, RestaurantService, ScanResult } from '../../services/restaurant';
 import { RestaurantCard } from '../restaurant-card/restaurant-card';
+import { FieldSelect } from '../field-select/field-select';
 
 interface ListItem {
   restaurant: Restaurant;
@@ -21,17 +22,19 @@ export const AMENITY_OPTIONS: { value: string; label: string }[] = [
   { value: 'ice_cream', label: 'Ice cream' },
 ];
 
-export const RADIUS_OPTIONS: { value: number; label: string }[] = [
-  { value: 500, label: '500 m' },
-  { value: 1000, label: '1 km' },
-  { value: 2000, label: '2 km' },
+export const RADIUS_OPTIONS: { value: number; label: string; sub: string }[] = [
+  { value: 500, label: '500', sub: 'm' },
+  { value: 1000, label: '1', sub: 'km' },
+  { value: 2000, label: '2', sub: 'km' },
 ];
 
 type Mode = 'zip' | 'radius';
 
+const PAGE_SIZE = 10;
+
 @Component({
   selector: 'app-search',
-  imports: [FormsModule, RestaurantCard],
+  imports: [FormsModule, RestaurantCard, FieldSelect],
   templateUrl: './search.html',
   styleUrl: './search.scss',
 })
@@ -53,6 +56,26 @@ export class Search implements OnDestroy {
 
   scanProgress = signal<{ scanned: number; total: number } | null>(null);
   scanCapped = signal(false);
+
+  currentPage = signal(1);
+  totalPages = computed(() => Math.max(1, Math.ceil(this.items().length / PAGE_SIZE)));
+  pagedItems = computed(() => {
+    const start = (this.currentPage() - 1) * PAGE_SIZE;
+    return this.items().slice(start, start + PAGE_SIZE);
+  });
+  pageNumbers = computed<(number | '…')[]>(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages: (number | '…')[] = [1];
+    const left = Math.max(2, current - 1);
+    const right = Math.min(total - 1, current + 1);
+    if (left > 2) pages.push('…');
+    for (let i = left; i <= right; i++) pages.push(i);
+    if (right < total - 1) pages.push('…');
+    pages.push(total);
+    return pages;
+  });
 
   private streamSub?: Subscription;
 
@@ -132,6 +155,7 @@ export class Search implements OnDestroy {
   private startStream(stream$: ReturnType<RestaurantService['scanStream']>) {
     this.error.set('');
     this.items.set([]);
+    this.currentPage.set(1);
     this.scanProgress.set(null);
     this.scanCapped.set(false);
     this.lastScanWasEmpty.set(false);
@@ -167,7 +191,9 @@ export class Search implements OnDestroy {
         }
       },
       error: () => {
-        this.error.set('Streaming failed. Is the backend running?');
+        this.error.set(
+          'Could not start the search. The directory service is temporarily unavailable — please try again in a moment.',
+        );
         this.loading.set(false);
       },
     });
@@ -177,6 +203,18 @@ export class Search implements OnDestroy {
     const next = this.radius() === 500 ? 1000 : 2000;
     this.radius.set(next);
     this.searchByRadius();
+  }
+
+  setPage(p: number) {
+    if (p < 1 || p > this.totalPages() || p === this.currentPage()) return;
+    this.currentPage.set(p);
+    document.querySelector('.results-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  stop() {
+    if (!this.loading()) return;
+    this.streamSub?.unsubscribe();
+    this.loading.set(false);
   }
 
   get suggestedNextRadiusLabel(): string | null {

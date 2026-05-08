@@ -1,0 +1,158 @@
+// Custom dropdown — botanical-editorial
+:host {
+  position: relative;
+  display: block;
+  width: 100%;
+  z-index: 50;
+}
+
+.trigger {
+  display: flex;
+  width: 100%;
+  height: 54px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px 0 16px;
+  background: var(--linen);
+  border: 1.5px solid var(--sage);
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+
+  .value {
+    flex: 1;
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1.1rem;
+    letter-spacing: -0.005em;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  .caret {
+    color: var(--moss);
+    flex: 0 0 auto;
+    display: inline-flex;
+    transition: transform var(--t-mid) var(--ease), color var(--t-fast) var(--ease);
+  }
+
+  &:hover {
+    border-color: var(--moss);
+    background: var(--paper);
+    .caret { color: var(--forest); }
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--moss);
+    background: var(--paper);
+    box-shadow: 0 0 0 4px var(--sage-soft);
+    .caret { color: var(--forest); }
+  }
+
+  &.is-open {
+    border-color: var(--moss);
+    background: var(--paper);
+    box-shadow: 0 0 0 4px var(--sage-soft);
+    .caret {
+      transform: rotate(180deg);
+      color: var(--forest);
+    }
+  }
+}
+
+// ── Panel ────────────────────────────────────────────────────────
+.panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--sage);
+  border-radius: 10px;
+  box-shadow: var(--shadow-medium);
+  max-height: 320px;
+  overflow-y: auto;
+  animation: panel-in 220ms var(--ease);
+  transform-origin: top left;
+
+  &.is-up {
+    top: auto;
+    bottom: calc(100% + 8px);
+    transform-origin: bottom left;
+    animation-name: panel-in-up;
+  }
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes panel-in-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.99); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+// ── Option rows ──────────────────────────────────────────────────
+.opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 18px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-radius: 1px;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+
+  &:not(:last-child) {
+    border-bottom: 1px dashed var(--sage-soft);
+  }
+
+  .opt-label {
+    font-family: var(--sans);
+    font-weight: 500;
+    font-size: 1rem;
+    color: var(--ink-soft);
+    line-height: 1.2;
+  }
+
+  .opt-mark {
+    width: 14px;
+    height: 14px;
+    transform: rotate(-8deg);
+  }
+
+  &:hover,
+  &.active {
+    background: var(--linen);
+
+    .opt-label { color: var(--ink); }
+  }
+
+  &.selected {
+    background: var(--linen-soft);
+
+    .opt-label {
+      color: var(--ink);
+      font-weight: 600;
+    }
+  }
+
+  &.selected.active {
+    background: var(--sage-soft);
+  }
+}

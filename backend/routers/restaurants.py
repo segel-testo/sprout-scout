@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
@@ -46,12 +47,18 @@ def _validate_radius_query(lat: float, lon: float, radius: int, amenity: str | N
         )
 
 
+UPSTREAM_UNAVAILABLE = "The restaurant directory is temporarily unavailable. Please try again in a moment."
+
+
 async def _load_restaurants(zip_code: str, country: str) -> list[dict]:
     cache_key = f"{country}_{zip_code}"
     cached = get_cached(cache_key)
     if cached:
         return cached["restaurants"]
-    restaurants = await fetch_restaurants(zip_code)
+    try:
+        restaurants = await fetch_restaurants(zip_code)
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE) from e
     set_cached(cache_key, {"zip_code": zip_code, "country": country, "restaurants": restaurants})
     return restaurants
 
@@ -61,7 +68,10 @@ async def _load_restaurants_by_radius(lat: float, lon: float, radius: int) -> li
     cached = get_cached(cache_key)
     if cached:
         return cached["restaurants"]
-    restaurants = await fetch_restaurants_by_radius(lat, lon, radius)
+    try:
+        restaurants = await fetch_restaurants_by_radius(lat, lon, radius)
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE) from e
     set_cached(cache_key, {"lat": lat, "lon": lon, "radius": radius, "restaurants": restaurants})
     return restaurants
 

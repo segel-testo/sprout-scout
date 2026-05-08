@@ -1,18 +1,38 @@
-<div class="card">
-  @if (amenityLabel) {
-    <span class="amenity-tag">{{ amenityLabel }}</span>
-  }
-  <div class="card-info">
-    <h3>{{ restaurant.name }}</h3>
-    <span class="badge">Vegan options found</span>
-    @if (restaurant.address) {
-      <p class="address">{{ restaurant.address }}</p>
-    }
-    @if (restaurant.phone) {
-      <p class="phone">{{ restaurant.phone }}</p>
+<li class="card">
+  <div class="body">
+    <header class="title">
+      <h3 class="name">{{ restaurant.name }}</h3>
+      @if (amenityLabel) {
+        <span class="amenity">— <em>{{ amenityLabel }}</em></span>
+      }
+    </header>
+
+    <p class="vegan-tag">
+      <span class="dot" aria-hidden="true"></span>
+      Vegan options found
+    </p>
+
+    @if (restaurant.address || restaurant.phone) {
+      <div class="meta">
+        @if (restaurant.address) {
+          <span class="meta-item address">{{ restaurant.address }}</span>
+        }
+        @if (restaurant.phone) {
+          <span class="meta-sep" aria-hidden="true">·</span>
+          <a class="meta-item phone" [href]="'tel:' + restaurant.phone">{{ restaurant.phone }}</a>
+        }
+      </div>
     }
   </div>
-  <a class="primary-link" [href]="primaryLink.url" target="_blank" rel="noopener">
-    {{ primaryLink.label }} →
+
+  <a
+    class="cta-link"
+    [class.is-delivery]="primaryLink.kind === 'delivery'"
+    [href]="primaryLink.url"
+    target="_blank"
+    rel="noopener"
+  >
+    <span class="cta-label">{{ primaryLink.label }}</span>
+    <span class="cta-arrow" aria-hidden="true">↗</span>
   </a>
-</div>
+</li>

@@ -4,6 +4,7 @@ import { Restaurant, ScanResult } from '../../services/restaurant';
 interface PrimaryLink {
   label: string;
   url: string;
+  kind: 'delivery' | 'website' | 'maps';
 }
 
 const AMENITY_LABELS: Record<string, string> = {
@@ -26,6 +27,7 @@ const AMENITY_LABELS: Record<string, string> = {
 export class RestaurantCard {
   @Input() restaurant!: Restaurant;
   @Input() scan!: ScanResult;
+  @Input() index = 1;
 
   get amenityLabel(): string | null {
     const a = this.restaurant.amenity;
@@ -33,16 +35,21 @@ export class RestaurantCard {
     return AMENITY_LABELS[a] ?? a.replace(/_/g, ' ');
   }
 
+  get prefix(): string {
+    return String(this.index).padStart(2, '0');
+  }
+
   get primaryLink(): PrimaryLink {
     const dl = this.scan?.delivery_link;
-    if (dl) return { label: dl.label, url: dl.url };
+    if (dl) return { label: dl.label, url: dl.url, kind: 'delivery' };
     if (this.restaurant.website) {
-      return { label: 'Visit website', url: this.restaurant.website };
+      return { label: 'Visit website', url: this.restaurant.website, kind: 'website' };
     }
     const query = encodeURIComponent(`${this.restaurant.name} ${this.restaurant.address}`.trim());
     return {
       label: 'Find on Google Maps',
       url: `https://www.google.com/maps/search/?api=1&query=${query}`,
+      kind: 'maps',
     };
   }
 }

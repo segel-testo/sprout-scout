@@ -1,1 +1,75 @@
-<app-search />
+<div class="shell">
+  <!-- Decorative leaf bleed (desktop only) -->
+  <svg
+    class="leaf-bleed"
+    viewBox="0 0 600 800"
+    aria-hidden="true"
+    preserveAspectRatio="xMaxYMid slice"
+  >
+    <defs>
+      <linearGradient id="leafGrad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#1F3D2C" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="#1F3D2C" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <path
+      d="M 480 80
+         C 320 140, 220 280, 240 460
+         C 250 580, 340 700, 500 740
+         C 380 660, 320 540, 330 420
+         C 340 280, 410 180, 540 120 Z"
+      fill="url(#leafGrad)"
+    />
+    <path
+      d="M 480 80 Q 360 360, 500 740"
+      fill="none"
+      stroke="#1F3D2C"
+      stroke-opacity="0.10"
+      stroke-width="1"
+    />
+  </svg>
+
+  <!-- Header / brand -->
+  <header class="brand">
+    <a class="brand-mark" href="/" aria-label="Sprout Scout home">
+      <svg class="glyph" viewBox="0 0 32 32" aria-hidden="true">
+        <!-- stem -->
+        <path
+          d="M16 30 C 16 22, 16 18, 16 14"
+          stroke="#1F3D2C"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          fill="none"
+        />
+        <!-- left leaf -->
+        <path
+          d="M16 18 C 8 18, 4 12, 4 6 C 10 6, 16 10, 16 18 Z"
+          fill="#1F3D2C"
+        />
+        <!-- right leaf -->
+        <path
+          d="M16 14 C 24 14, 28 8, 28 2 C 22 2, 16 6, 16 14 Z"
+          fill="#4A6B47"
+        />
+        <!-- accent dot -->
+        <circle cx="16" cy="14" r="1.4" fill="#C8E0BA"/>
+      </svg>
+      <span class="wordmark">
+        <span>Sprout</span><em>Scout</em>
+      </span>
+    </a>
+
+  </header>
+
+  <main class="content">
+    <app-search />
+  </main>
+
+  <footer class="foot">
+    <span class="foot-rule" aria-hidden="true"></span>
+    <p>
+      <em>A field guide to vegan menus.</em>
+      Tended in Vienna · {{ year }}.
+    </p>
+  </footer>
+</div>

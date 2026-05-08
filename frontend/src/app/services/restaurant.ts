@@ -53,8 +53,10 @@ export class RestaurantService {
   private streamFrom(url: string): Observable<ScanEvent> {
     return new Observable<ScanEvent>((subscriber) => {
       const source = new EventSource(url);
+      let received = false;
 
       const forward = (type: ScanEvent['type']) => (ev: MessageEvent) => {
+        received = true;
         try {
           const data = JSON.parse(ev.data);
           subscriber.next({ type, ...data } as ScanEvent);
@@ -75,7 +77,11 @@ export class RestaurantService {
 
       source.onerror = () => {
         if (source.readyState === EventSource.CLOSED) {
-          subscriber.complete();
+          if (received) {
+            subscriber.complete();
+          } else {
+            subscriber.error(new Error('connection-failed'));
+          }
         }
       };
 

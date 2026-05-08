@@ -1,0 +1,59 @@
+<button
+  type="button"
+  class="trigger"
+  [class.is-open]="open()"
+  [attr.aria-expanded]="open()"
+  [attr.aria-haspopup]="'listbox'"
+  [attr.aria-label]="ariaLabel"
+  (click)="toggle()"
+>
+  <span class="value">{{ selectedLabel }}</span>
+  <span class="caret" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="16" height="16">
+      <path
+        d="M4 6 L8 10 L12 6"
+        stroke="currentColor"
+        stroke-width="1.4"
+        fill="none"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </span>
+</button>
+
+@if (open()) {
+  <ul
+    class="panel"
+    [class.is-up]="dropUp()"
+    role="listbox"
+    [attr.aria-label]="ariaLabel"
+  >
+    @for (opt of options; track opt.value; let i = $index) {
+      <li
+        class="opt"
+        role="option"
+        [class.selected]="opt.value === value"
+        [class.active]="i === activeIndex()"
+        [attr.aria-selected]="opt.value === value"
+        (mouseenter)="activeIndex.set(i)"
+        (click)="select(opt)"
+      >
+        <span class="opt-label">{{ opt.label }}</span>
+        @if (opt.value === value) {
+          <svg class="opt-mark" viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 14 C 8 10, 8 8, 8 6"
+              stroke="#1F3D2C"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              fill="none"
+            />
+            <path d="M8 8 C 4 8, 2 5, 2 2 C 5 2, 8 4, 8 8 Z" fill="#1F3D2C"/>
+            <path d="M8 6 C 12 6, 14 3, 14 0 C 11 0, 8 2, 8 6 Z" fill="#4A6B47"/>
+          </svg>
+        }
+      </li>
+    }
+  </ul>
+}

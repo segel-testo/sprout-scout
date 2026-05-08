@@ -1,12 +1,226 @@
+// ─────────────────────────────────────────────────────────────────
+//  Sprout Scout — Forager's Field Guide
+//  Botanical-editorial light theme
+// ─────────────────────────────────────────────────────────────────
+
+:root {
+  // Surfaces
+  --linen:        #F5F1E8;
+  --linen-soft:   #EFE9DC;
+  --paper:        #FBF8F1;
+
+  // Ink
+  --ink:          #161A14;
+  --ink-soft:     #2A2F26;
+
+  // Greens
+  --forest:       #1F3D2C;
+  --forest-deep:  #142a1e;
+  --moss:         #4A6B47;
+  --sage:         #C8D4BC;
+  --sage-soft:    #DDE5D2;
+
+  // Accents & support
+  --leaf:         #C8E0BA;
+  --leaf-d:       #9FBE89;
+  --chartreuse:   #C8E0BA;  // legacy alias → leaf
+  --chartreuse-d: #9FBE89;  // legacy alias → leaf-d
+  --clay:         #D9CDB4;
+  --rust:         #A14B2A;
+
+  // Soft natural shadows
+  --shadow-soft:    0 6px 22px -10px rgba(31, 61, 44, 0.18);
+  --shadow-medium:  0 10px 28px -12px rgba(31, 61, 44, 0.22);
+  --shadow-cta:     0 4px 14px -4px rgba(31, 61, 44, 0.28);
+  --shadow-cta-h:   0 8px 22px -6px rgba(31, 61, 44, 0.32);
+
+  // Type
+  --display: 'Fraunces', 'Cormorant Garamond', Georgia, serif;
+  --sans:    'Albert Sans', 'Inter', system-ui, sans-serif;
+  --mono:    'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  // Motion
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --t-fast: 180ms;
+  --t-mid:  280ms;
+  --t-slow: 520ms;
+
+  // Rhythm
+  --rule: 1px solid var(--sage);
+  --rule-soft: 1px solid var(--sage-soft);
+}
+
+// ── Reset ────────────────────────────────────────────────────────
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
+html, body {
+  min-height: 100%;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 body {
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  background: #f4f7f2;
-  color: #1a1a1a;
-  min-height: 100vh;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--linen);
+  font-feature-settings: 'ss01', 'cv11';
+  font-variation-settings: 'wght' 420;
+  position: relative;
+  overflow-x: hidden;
+}
+
+// ── Grain overlay ────────────────────────────────────────────────
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.6;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240' viewBox='0 0 240 240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.09  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.045 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+}
+
+// ── Type defaults ────────────────────────────────────────────────
+h1, h2, h3, h4 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-variation-settings: 'opsz' 100, 'SOFT' 70, 'wght' 420;
+  color: var(--ink);
+  line-height: 1.04;
+  letter-spacing: -0.012em;
+}
+
+p {
+  font-family: var(--sans);
+  color: var(--ink-soft);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: var(--sans);
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  caret-color: var(--forest);
+}
+
+// Kill browser autofill yellow / blue
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--ink);
+  -webkit-box-shadow: 0 0 0 1000px var(--paper) inset;
+  caret-color: var(--forest);
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+// Custom focus ring
+:focus-visible {
+  outline: 2px dashed var(--forest);
+  outline-offset: 4px;
+  border-radius: 1px;
+}
+
+// Editorial cursor on interactive elements
+button,
+[role='button'],
+[role='tab'],
+[role='radio'],
+[role='option'] {
+  cursor: pointer;
+}
+
+::selection {
+  background: var(--chartreuse);
+  color: var(--ink);
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+.eyebrow {
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--moss);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  &::before {
+    content: '';
+    width: 28px;
+    height: 1px;
+    background: var(--moss);
+    display: inline-block;
+  }
+}
+
+.numeral {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--moss);
+}
+
+// ── Custom scrollbar ─────────────────────────────────────────────
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--linen); }
+::-webkit-scrollbar-thumb {
+  background: var(--sage);
+  border-radius: 999px;
+  border: 2px solid var(--linen);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--moss); }
+
+// ── Global keyframes ─────────────────────────────────────────────
+@keyframes cta-spin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// ── Reduced motion ───────────────────────────────────────────────
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  // Loading spinner is essential feedback, not decoration — must keep moving
+  .cta-spinner {
+    animation: cta-spin 0.8s linear infinite !important;
+  }
 }
