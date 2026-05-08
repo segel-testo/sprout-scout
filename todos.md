@@ -199,7 +199,12 @@ Still open as a follow-up if desired (deferred — separate from launch blockers
 11. ~~#18 CORS lockdown~~ — done.
 12. ~~#19 cache-key hash + #20 counter.dev real ID~~ — done. (CSP / SRI deferred as separate follow-ups, see #20.)
 13. ~~#10 cleanup~~ — done.
-14. Deploy: backend → Render (api.sprout-scout.at), frontend → Codeberg Pages (www.sprout-scout.at). See README "Deployment" section + `frontend/scripts/deploy-codeberg.ps1`.
+14. Deploy — **in progress**.
+    - ✅ Codeberg account created (`heislsheimen`), SSH key generated and registered, `codeberg.org/heislsheimen/sprout-scout` repo created.
+    - ✅ First frontend deploy ran via `frontend/scripts/deploy-codeberg.ps1` — `pages` branch live, `curl https://heislsheimen.codeberg.page/sprout-scout/` returns `307 → https://www.sprout-scout.at/` (proves `.domains` works, bundle is up).
+    - ⏳ **DNS** — domain `sprout-scout.at` bought but registrar panel not yet accessible. When available, add `CNAME www → heislsheimen.codeberg.page` and `A`/`AAAA` for the apex pointing at Codeberg's published IPs (see [Codeberg custom-domain docs](https://docs.codeberg.org/codeberg-pages/custom-domain/) — IPs may rotate). Codeberg auto-provisions Let's Encrypt cert once DNS resolves.
+    - ⏳ **Backend on Render** — Python web service from the GitHub repo. Required env var: `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Custom domain `api.sprout-scout.at` + matching `CNAME` at DNS.
+    - ⏳ **Smoke test** once both endpoints respond: zip search, radius search ("Near me"), Impressum + Privacy modals, OSM attribution link.
 
 ## Out of scope (confirmed)
 
