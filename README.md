@@ -21,6 +21,9 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Angular UI (single auto-scan flow) | done |
 | Integration test against 5 real-world URLs | done |
 | Radius search (`Near me` mode, 500m / 1km / 2km, AT-clipped) | done |
+| Soft-natural UI redesign + custom dropdown + paginated results | done |
+| Stop control (abort in-flight scan, keep partial results) | done |
+| Overpass retry-with-backoff + clean 503 on persistent failure | done |
 | Deploy frontend (Vercel) | next |
 | Deploy backend (Render) | next |
 
@@ -170,9 +173,15 @@ Two search modes via a segmented control above the input row:
 - **By zip** (default) — 4-digit Austrian zip + amenity filter.
 - **Near me** — three radius pills (500m / 1km / 2km, default 500m) + amenity filter. The Search button itself triggers geolocation on every press: while in flight the button label is `Locating…` with an inline spinner, then flips to `Searching…` once the scan starts. `getCurrentPosition` runs with `maximumAge: 60000`, so a fresh fix from the last minute is reused instantly without a real GPS poll. On denial or unsupported browser, the UI snaps back to zip mode and shows an inline message.
 
-After either mode finishes, the search bar opens the SSE endpoint immediately, shows a spinner + `Scanning X / total` counter, and reveals restaurants progressively as their scans come back positive. Zero-dish results are filtered out server-side. If a radius scan finishes empty, an inline "Try 1 km" / "Try 2 km" button bumps the radius and re-runs.
+After either mode finishes, the search bar opens the SSE endpoint immediately, shows a `Scanning X / total` counter, and reveals restaurants progressively as their scans come back positive. Zero-dish results are filtered out server-side. If a radius scan finishes empty, an inline "Try 1 km" / "Try 2 km" button bumps the radius and re-runs.
 
-Each restaurant card shows: name, "Vegan options found" badge, address, phone, an amenity tag in the top-right corner (Restaurant / Café / Pub / …), and a single primary-link button in the bottom-right. The button picks the best target available: delivery platform link → website → Google Maps search.
+The CTA flips role while a scan is running — the green "Begin scan" button becomes a rust-colored "Stop" button (with the trailing arrow swapped for a rotating spinner). Clicking it closes the SSE connection, the backend cleanly cancels in-flight scans, and any restaurants found so far stay on screen.
+
+Result cards are standalone paper surfaces with sage borders and a soft drop shadow, separated by gaps. Each card shows: name, "Vegan options found" badge, address, phone, an amenity tag in the top-right corner (Restaurant / Café / Pub / …), and a single primary-link button on the bottom-right that picks the best target available — delivery platform link → website → Google Maps search.
+
+When more than 10 restaurants come back, the results paginate at 10/page with a numbered control (smart ellipsis kicks in past 7 pages); switching pages smooth-scrolls back to the top of the results section.
+
+The amenity filter uses a custom dropdown component (`field-select`) instead of a native `<select>` — it flips upward when the trigger is too close to the viewport bottom, and follows the trigger if you scroll while open.
 
 ---
 
@@ -224,4 +233,6 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 - **PDF embedding.** Supports `<a href>`, `<iframe>`, `<object>`, `<embed>`, content-type sniffing for extension-less URLs, and PDF.js viewer query-param unwrapping.
 - **Caching.** File-based JSON in `backend/.cache/`, 1-week TTL. Restaurant lists cached by zip; radius lists cached by `AT_radius_{round(lat,3)}_{round(lon,3)}_{radius}` (a ~100m grid so nearby taps share); scan results cached by `{restaurant_id}_{sha1(website)[:10]}` so the same URL doesn't re-scan on every search.
 - **SSE over WebSockets.** One-way stream, plain HTTP, browser-native `EventSource`. No extra dependency needed — FastAPI's `StreamingResponse` emits the `event:` / `data:` frames directly.
+- **Overpass resilience.** Public Overpass API regularly returns 504 / 502 / 429 under load. `_run_query` retries up to 3 attempts with 1s/2s backoff on those statuses and on `httpx.RequestError`; persistent failures convert to `HTTPException(503)` at the router so the frontend can show a friendly "directory temporarily unavailable" message instead of a 500 stack trace. The `EventSource` client also distinguishes connection-failed-before-any-event from a normal end-of-stream so a backend 503 surfaces as an inline error rather than an indefinite spinner.
+- **Stop control.** Abort is purely a frontend-driven `EventSource.close()` — the backend's `_stream_scan` already polled `request.is_disconnected()` for keepalive purposes, so the same path cancels pending scan tasks cleanly when the user hits Stop. Already-found results stay rendered.
 - **No login required.** Public tool.

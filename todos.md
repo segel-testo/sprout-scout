@@ -69,6 +69,31 @@ Native `<select>` (no Material dep). Backend-side filtering, so fewer scans / fe
 
 Build passes (`ng build --configuration development`).
 
+## ✅ 12. Soft-natural UI redesign — DONE
+
+Reframed the editorial-magazine look into a calmer "field guide" aesthetic. Controls became more obviously interactive; brand accent shifted from yellow-chartreuse to soft leaf-green.
+
+- `styles.scss`: brand accent vars repurposed — `--chartreuse` (#E8F564 yellow → #C8E0BA soft leaf), `--chartreuse-d` (#C8D844 → #9FBE89). New `--leaf`, `--leaf-d` aliases. New soft-shadow tokens (`--shadow-soft`, `--shadow-medium`, `--shadow-cta`, `--shadow-cta-h`). Global `@keyframes cta-spin` lives here so it's not subject to component-scoped CSS quirks; `prefers-reduced-motion` block carries an explicit override for `.cta-spinner` so essential feedback keeps rotating.
+- `search.scss`: control surface became a rounded paper panel (1px sage border, 14px radius, soft drop shadow). Tabs are a pill-shaped segmented control. Form controls are 54px with bordered fields, focus snaps the border to moss + a 4px sage-soft halo (no more yellow ring). Radius pills are real selectable buttons (forest fill + sage rings/unit on active). CTA is 54px with weight 600 sans label, soft drop shadow that deepens on hover, and an `is-stop` variant that paints rust during an in-flight scan.
+- `field-select.{ts,html,scss}`: new custom dropdown component — sage-bordered trigger that matches the field style, rounded paper panel with soft shadow. Open-direction is computed from the trigger's `getBoundingClientRect` (flips upward when there's ≤336px below and more space above). `:host` is permanently `z-index: 50` so the panel always paints over later siblings.
+- `restaurant-card.{html,scss}`: `Nº 01` prefix removed. Cards became standalone surfaces — paper bg, 1px sage border, 12px radius, soft drop shadow, 14px gap between cards. Hover lifts 1px and darkens the border.
+- Typography unified — every interactive control uses Albert Sans (weight 500 default, 600 active/selected). Fraunces display is reserved for hero, results count, scan progress numerals, restaurant card name, and the small italic accents in scan caption / error notice / footer / brand wordmark. `Nº 01 · The Field Guide` eyebrow + `Vol. I · Vienna · AT` brand-meta nav both removed.
+- Loading spinner replaces the trailing arrow on the CTA during locate / scan (zip + radius forms).
+
+## ✅ 13. Paginated results — DONE
+
+Page size 10 (only paginates when more results come in). `currentPage` signal + `pagedItems` / `totalPages` / `pageNumbers` computed signals in `search.ts`. Smart ellipsis kicks in past 7 pages: `[1, …, current-1, current, current+1, …, total]`. New search resets the page to 1 inside `startStream`. `setPage` smooth-scrolls back to the top of the results section. Styles live in `search.scss` (`.pagination`, `.page-btn`, `.page-arrow`, `.page-ellipsis`) — sage-bordered paper buttons, forest-fill on active, hairline divider above.
+
+## ✅ 14. Stop control + Overpass resilience — DONE
+
+Stop is purely frontend: `Search.stop()` calls `streamSub.unsubscribe()`, which triggers the `EventSource.close()` teardown in `RestaurantService.streamFrom`. Backend's existing `request.is_disconnected()` polling in `_stream_scan` then cancels in-flight scan tasks via the `finally` block. Already-found results stay visible. CTA flips to rust `is-stop` variant during `loading()`; locating remains disabled-with-spinner because `getCurrentPosition` has no clean abort.
+
+Overpass resilience:
+- `services/overpass.py`: `_run_query` retries up to 3 attempts with 1s/2s backoff on `429 | 502 | 503 | 504` and `httpx.RequestError`. Permanent 4xx (excluding 429) raises immediately.
+- `routers/restaurants.py`: `_load_restaurants` and `_load_restaurants_by_radius` wrap the `fetch_*` calls in `try/except (httpx.HTTPStatusError, httpx.RequestError)` and convert to `HTTPException(503, "The restaurant directory is temporarily unavailable. Please try again in a moment.")`.
+- `services/restaurant.ts` `streamFrom`: tracks whether any SSE event was received. If `EventSource` reaches `CLOSED` without any data (i.e. the initial GET failed with non-2xx), calls `subscriber.error()` instead of silently completing. Previously the spinner spun forever on a 500/503.
+- `search.ts`: error handler message updated to "Could not start the search. The directory service is temporarily unavailable — please try again in a moment."
+
 ## ✅ 11. Radius search ("Near me" mode) — DONE
 
 Two-mode search via segmented control: existing `By zip` plus new `Near me` (500m / 1km / 2km, default 500m). Backend hard-clips to Austria via the Overpass `area["ISO3166-1"="AT"]` filter; cross-border hits are dropped at the source.
@@ -83,9 +108,9 @@ Build passes (`ng build --configuration development`). Backend module imports cl
 
 ## 10. Cleanup pass (last)
 
-After 4–6 land:
 - Search for unreferenced functions/components/imports across `backend/` and `frontend/src/`.
 - Specifically check whether `GET /api/restaurants/{id}/vegan` still has callers (Angular service, tests). If not, delete the route + its handler. **Note: as of step 1, the FE no longer calls it — only the integration test path may still use it.**
+- The `index` input on `RestaurantCard` is unused since the `Nº 01` prefix was removed in step 12 — candidate for deletion (and the corresponding `prefix` getter / template usages, if any are still around).
 - Look for duplicated extraction/normalization logic between `extractor.py` and the adapters.
 - Run the integration test again as a final regression check.
 
@@ -94,11 +119,15 @@ After 4–6 land:
 ## Suggested order
 
 1. ~~Investigate #4 and #6~~ — done.
-2. #5 OCR path (backend, isolated).
-3. ~~#9 amenity filter dropdown~~ — done.
-4. ~~#8 lift the 30-restaurant cap~~ — done.
-5. ~~#11 radius search~~ — done.
-6. #10 cleanup.
+2. ~~#9 amenity filter dropdown~~ — done.
+3. ~~#8 lift the 30-restaurant cap~~ — done.
+4. ~~#11 radius search~~ — done.
+5. ~~#12 UI redesign~~ — done.
+6. ~~#13 pagination~~ — done.
+7. ~~#14 stop control + Overpass resilience~~ — done.
+8. #5 OCR path (backend, isolated) — still pending.
+9. #10 cleanup — still pending.
+10. Deploy: backend → Render, frontend → Vercel.
 
 ## Out of scope (confirmed)
 
