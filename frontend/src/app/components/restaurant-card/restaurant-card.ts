@@ -27,16 +27,11 @@ const AMENITY_LABELS: Record<string, string> = {
 export class RestaurantCard {
   @Input() restaurant!: Restaurant;
   @Input() scan!: ScanResult;
-  @Input() index = 1;
 
   get amenityLabel(): string | null {
     const a = this.restaurant.amenity;
     if (!a) return null;
     return AMENITY_LABELS[a] ?? a.replace(/_/g, ' ');
-  }
-
-  get prefix(): string {
-    return String(this.index).padStart(2, '0');
   }
 
   get primaryLink(): PrimaryLink {

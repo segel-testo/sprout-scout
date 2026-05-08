@@ -28,16 +28,6 @@ Root cause: tagged `amenity=cafe` in OSM, but the Overpass query only matched `a
 - Verified: postcode 2340 went from 29 to 57 results; Bruder und Schwester (`node/1925290287`) now comes back with `website=http://www.bruderundschwester.com`.
 - The homepage doesn't contain vegan keywords directly, but the one-hop crawl from #6 follows `/speisekarte` and the PDF adapter pulls 7 vegan dishes.
 
-## 5. zuminderhof.at — image-only PDF fallback
-
-**Rule:** OCR runs *only* when normal text extraction returns empty/whitespace. If extraction yields text but no vegan keyword matches, no OCR.
-
-- `backend/services/adapters/pdf.py` — after `pdfplumber.extract_text()`, check whether the result is empty (or below a small whitespace threshold, e.g. <20 non-whitespace chars across all pages).
-- If empty → fall through to OCR path: rasterize each page with `pdf2image` (or `pdfplumber`'s page images), run `pytesseract.image_to_string`, concatenate.
-- New deps: `pytesseract`, `pdf2image`. System deps: Tesseract binary, Poppler (for pdf2image). Document in `backend/requirements.txt` and a "System dependencies" section in README.
-- Add a per-PDF timeout cap on the OCR path (e.g. 15s) so a 50-page scanned menu doesn't blow the 25s scan timeout for the whole restaurant.
-- Verify against `zuminderhof.at`: download the PDF, confirm `extract_text()` returns empty, confirm OCR finds "vegan".
-
 ## ✅ 6. kennys.at — DONE
 
 Root cause: menu lives one click deep at `/produkte/` (and sub-pages); homepage's only "vegan" mentions are inside image filenames, which BeautifulSoup strips during text extraction.
@@ -153,21 +143,9 @@ CORS is now env-driven so the production origin list lives on Render rather than
 - Production env var on Render (documented in README *Backend → Render*): `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Append `,https://<user>.codeberg.page` while DNS is propagating if you want to smoke-test the default Codeberg URL.
 - Verified: backend imports cleanly with the default origin list, env var parsing trims whitespace and drops empty entries, integration regression (`tests.scan_examples`) still produces the five expected outcomes.
 
-## 19. Replace cache-key sanitization with a hash — LOW
+## ✅ 19. Replace cache-key sanitization with a hash — DONE
 
-**File:** `backend/services/cache.py:11-13`
-
-**Problem.** `_cache_path` only replaces `/` and `:`. It does not strip `..`, backslash, null bytes, or absolute-path indicators. Currently safe because every caller passes already-validated input (`AT` country, 4-digit zip, integer radii, SHA-1 hex digests), so no traversal is reachable. But the sanitizer is the wrong defense — any future cache key built from less-validated input (an `amenity` value, a freeform search term) could write outside `.cache/`.
-
-**Fix.** Make the sanitizer collision-proof regardless of input:
-```python
-import hashlib
-
-def _cache_path(key: str) -> Path:
-    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
-    return CACHE_DIR / f"{digest}.json"
-```
-Cache keys remain deterministic per input string; traversal becomes impossible by construction.
+`backend/services/cache.py` — `_cache_path` now returns `CACHE_DIR / f"{sha256(key)}.json"`. Path traversal via key contents is impossible by construction; the only thing the function can ever produce is a 64-hex-char filename inside `CACHE_DIR`. Existing `.cache/` files keyed by the old sanitizer become orphans on first run after deploy — harmless (1-week TTL would have expired them anyway, and on Render the disk is ephemeral so the cache rebuilds on every cold start). Locally you can `rm -rf backend/.cache/` if you want a clean slate. Integration test still produces all five expected outcomes.
 
 ## ✅ 21 + 22 + 23. Legal pages (Impressum, OSM attribution, Privacy) — DONE
 
@@ -186,27 +164,23 @@ Audit-driven legal triple shipped via a single non-disruptive modal pattern. The
 
 Build passes (`ng build --configuration development`).
 
-## 20. Lock down third-party assets — LOW
+## ✅ 20. counter.dev real ID — DONE
 
-**File:** `frontend/src/index.html:18`
+`frontend/src/index.html` — placeholder `YOUR-COUNTER-DEV-ID` replaced with the real counter.dev site ID `ca079955-cd3a-4c77-8c03-778fc417f597`. Analytics now actually tracks.
 
-**Problem.** `<script src="https://cdn.counter.dev/script.js" data-id="YOUR-COUNTER-DEV-ID" …>` — no Subresource Integrity hash, and the `data-id` is still the placeholder string from the install snippet (so the analytics is loading-but-not-tracking). Without SRI, a `cdn.counter.dev` compromise becomes supply-chain XSS in your users' browsers.
-
-**Fix.** Either:
-- Replace the placeholder with the real counter.dev ID and add `integrity="sha384-…" crossorigin="anonymous"` (pin to the current published bundle hash), or
-- Remove the script entirely until analytics is actually wanted.
-
-While you're in `index.html`, also add a Content-Security-Policy — either as a `<meta http-equiv="Content-Security-Policy">` tag or via Vercel's `vercel.json` `headers` config. A starting policy: `default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' https://cdn.counter.dev; connect-src 'self' https://<render-domain>;`.
+Still open as a follow-up if desired (deferred — separate from launch blockers):
+- **Subresource Integrity (SRI):** counter.dev publishes a versioned bundle, so pinning a `sha384-…` hash means the script breaks on every bundle update; the practical hardening here is to self-host a copy of `script.js` (then SRI-pin it) or accept the small supply-chain risk in exchange for live updates. No action taken — counter.dev is a small, EU-leaning analytics service, and the script runs inert unless `data-id` matches.
+- **Content-Security-Policy:** worth adding before launch as a `<meta http-equiv>` tag in `index.html`. Starting policy: `default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' https://cdn.counter.dev; connect-src 'self' https://api.sprout-scout.at;`. Test carefully — Angular's runtime emits inline styles and may need `'unsafe-inline'` on `style-src`. Deferred.
 
 ---
 
-## 10. Cleanup pass (last)
+## ✅ 10. Cleanup pass — DONE
 
-- Search for unreferenced functions/components/imports across `backend/` and `frontend/src/`.
-- Specifically check whether `GET /api/restaurants/{id}/vegan` still has callers (Angular service, tests). If not, delete the route + its handler. **Note: as of step 1, the FE no longer calls it — only the integration test path may still use it.**
-- The `index` input on `RestaurantCard` is unused since the `Nº 01` prefix was removed in step 12 — candidate for deletion (and the corresponding `prefix` getter / template usages, if any are still around).
-- Look for duplicated extraction/normalization logic between `extractor.py` and the adapters.
-- Run the integration test again as a final regression check.
+- `RestaurantCard.index` input + `prefix` getter deleted from `restaurant-card.ts`. Dead since #12 removed the `Nº 01 ·` prefix display from the card template.
+- `Restaurant` interface (`services/restaurant.ts`) trimmed: `osm_diet_vegan` and `osm_type` removed. Both were declared but never read anywhere in the UI — backend still emits `osm_type` inside `no_menu_payload` but that payload is filtered out server-side (`_stream_scan` only yields restaurants with `dishes`), so the field never crosses the wire.
+- `GET /api/restaurants/{id}/vegan` was already removed in #16. No stragglers.
+- **Backend extractor/adapter dedup — examined, no action.** Each adapter (`generic.py`, `pdf.py`) does format-specific normalization (HTML script-stripping + `get_text("\n")` for HTML; `pdfplumber.extract_text()` page-joining for PDF) and then hands off to the shared `extract_vegan_dishes(text, source)`. That's the right separation, not duplication.
+- Integration test (`tests.scan_examples`) passes: Zen → delivery, Akakiko → 2 dishes, Ofenbarung + MisterBeans → no_menu, Bruder → 7 PDF dishes.
 
 ---
 
@@ -223,13 +197,31 @@ While you're in `index.html`, also add a Content-Security-Policy — either as a
 9. ~~#21 Impressum + #22 OSM attribution + #23 privacy notice~~ — done.
 10. ~~#17 environment-based `apiUrl`~~ — done.
 11. ~~#18 CORS lockdown~~ — done.
-12. #19 cache-key hash + #20 third-party script SRI / CSP.
-13. #5 OCR path (backend, isolated) — still pending.
-14. #10 cleanup (folds in unused `RestaurantCard.index`).
-15. Deploy: backend → Render (api.sprout-scout.at), frontend → Codeberg Pages (www.sprout-scout.at). See README "Deployment" section + `frontend/scripts/deploy-codeberg.ps1`.
+12. ~~#19 cache-key hash + #20 counter.dev real ID~~ — done. (CSP / SRI deferred as separate follow-ups, see #20.)
+13. ~~#10 cleanup~~ — done.
+14. Deploy: backend → Render (api.sprout-scout.at), frontend → Codeberg Pages (www.sprout-scout.at). See README "Deployment" section + `frontend/scripts/deploy-codeberg.ps1`.
 
 ## Out of scope (confirmed)
 
 - Headless browser for foodora/lieferando/kennys.
 - OCR on non-PDF image menus.
 - Countries other than Austria.
+
+---
+
+## 🔭 v2 backlog (post-launch)
+
+Things deferred until after the v1 public launch. Pick up when there's a reason to.
+
+### v2.1 — OCR fallback for image-only PDFs (was #5)
+
+**Target case:** `zuminderhof.at` ships a scanned PDF menu — `pdfplumber.extract_text()` returns empty, so the scanner currently surfaces it as `no_menu` even though the word *vegan* is visible on the page.
+
+**Why deferred:** adds Tesseract + Poppler as system dependencies, which means writing a `Dockerfile` for Render instead of using the simple Python web service template. Worth it once we know v1 traffic justifies the deploy complexity, or once a second image-only PDF surfaces.
+
+**Plan when picked up:**
+- `backend/services/adapters/pdf.py` — after `pdfplumber.extract_text()`, check whether the result is empty (or below a small whitespace threshold, e.g. <20 non-whitespace chars across all pages). **OCR runs *only* if normal extraction is empty** — if extraction yields text but no vegan keyword matches, *don't* OCR. Keeps the common path fast.
+- If empty → fall through to OCR: rasterize each page with `pdf2image`, run `pytesseract.image_to_string`, concatenate.
+- New pip deps: `pytesseract`, `pdf2image`. System deps: Tesseract binary, Poppler. Document in `backend/requirements.txt` + a "System dependencies" section in README. Render deploy switches from buildpack to `Dockerfile`.
+- Per-PDF OCR timeout cap (e.g. 15s) so a 50-page scanned menu doesn't blow the 25s scan timeout for the whole restaurant.
+- Verify against `zuminderhof.at`: download the PDF, confirm `extract_text()` returns empty, confirm OCR finds "vegan".

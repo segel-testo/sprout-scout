@@ -9,8 +9,6 @@ export interface Restaurant {
   website: string;
   phone: string;
   amenity?: string | null;
-  osm_diet_vegan?: string | null;
-  osm_type?: string;
 }
 
 export interface DeliveryLink {

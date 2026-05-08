@@ -1,3 +1,4 @@
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -9,8 +10,11 @@ CACHE_DIR.mkdir(exist_ok=True)
 
 
 def _cache_path(key: str) -> Path:
-    safe_key = key.replace("/", "_").replace(":", "_")
-    return CACHE_DIR / f"{safe_key}.json"
+    # Hash the full key so the on-disk filename can never escape CACHE_DIR
+    # via "..", path separators, null bytes, etc., regardless of how trusted
+    # the caller's input is.
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return CACHE_DIR / f"{digest}.json"
 
 
 def get_cached(key: str):
