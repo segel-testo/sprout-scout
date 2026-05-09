@@ -32,8 +32,8 @@ Skim, don't memorize. The code is the truth.
 - **#21 Impressum** — Austrian *E-Commerce-Gesetz § 5 (1)* requires every publicly accessible site served from / targeting Austrian users to display name + address + email. Applies to non-commercial hobby sites too. Static page or footer modal.
 - **#22 OSM attribution** — ODbL § 4.3 requires "© OpenStreetMap contributors" with a link to <https://www.openstreetmap.org/copyright> wherever Overpass data is surfaced. Currently nowhere.
 - **#23 privacy notice** — GDPR Art. 13. Static page covering: search terms / IP / geolocation, retention, processors (Render, Vercel, Google Fonts, counter.dev if kept), data subject rights, contact.
-- **#17** — move frontend `apiUrl` (`services/restaurant.ts:35`) into Angular `environments/` files; required for Vercel deploy to work.
-- **#18** — restrict `CORSMiddleware` `allow_origins` to the deployed Vercel domain + localhost.
+- **#17** — move frontend `apiUrl` (`services/restaurant.ts:35`) into Angular `environments/` files; required for the Codeberg Pages deploy to point at the production API.
+- **#18** — restrict `CORSMiddleware` `allow_origins` to the deployed Codeberg/custom domain + localhost.
 - **#19** — replace cache-key sanitizer in `services/cache.py` with a SHA-256 hash so future cache keys can't path-traverse.
 - **#20** — add SRI hash to (or remove) the `cdn.counter.dev` script in `index.html`; add a CSP header.
 - **#5** — `zuminderhof.at` likely serves an image-only PDF. Add OCR (`pytesseract` + `pdf2image` + Tesseract + Poppler) **only as a fallback** when `pdfplumber.extract_text()` returns empty/near-empty. If extraction works but no vegan keyword matches, do NOT OCR.
@@ -57,7 +57,9 @@ Skim, don't memorize. The code is the truth.
 
 ## Suggested first move
 
-**Legal first**: #21 Impressum, #22 OSM attribution, #23 privacy notice — these are the actual launch blockers under Austrian law / GDPR / ODbL. Then #17 (environment-based `apiUrl`, otherwise the Vercel build calls `localhost:8000` and the site is dead in production), #18 (CORS lockdown), #19 (cache-key SHA-256), #20 (counter.dev SRI + CSP). After legal + deploy work lands, pick up #5 (OCR fallback) and #10 (cleanup, including the unused `RestaurantCard.index` input).
+**Legal first**: #21 Impressum, #22 OSM attribution, #23 privacy notice — these are the actual launch blockers under Austrian law / GDPR / ODbL. Then #17 (environment-based `apiUrl`, otherwise the production build calls `localhost:8000` and the site is dead in production), #18 (CORS lockdown), #19 (cache-key SHA-256), #20 (counter.dev SRI + CSP). After legal + deploy work lands, pick up #5 (OCR fallback) and #10 (cleanup, including the unused `RestaurantCard.index` input).
+
+**Note (2026-05-09):** all the items above are now done. Active work is the Northflank backend deploy + DNS for `sprout-scout.at`. See `startup.md` for the live state and the README *Backend → Northflank* section for the deploy walkthrough.
 
 ```bash
 cd backend && venv/Scripts/python -m tests.scan_examples

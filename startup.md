@@ -8,15 +8,17 @@ Resume here after a break.
 - **Deploy repo (Codeberg):** https://codeberg.org/heislsheimen/sprout-scout
 - **Local path:** `C:\Vali\coding\sprout-scout`
 
-## Where we stopped (2026-05-08)
+## Where we stopped (2026-05-09)
 
 All v1 hardening shipped — legal pages, env-driven `apiUrl`, CORS lockdown, SHA-256 cache keys, real counter.dev ID, dead-code cleanup. **Latest commit on `main`: `62e7870`.**
 
 Frontend successfully deployed to Codeberg Pages once: `pages` branch on `codeberg.org/heislsheimen/sprout-scout` is live. Codeberg returns `307 → https://www.sprout-scout.at/` (correct behavior — `.domains` is in the build), confirming the bundle is up.
 
+**Backend host decision changed (2026-05-09):** moved off Render in favor of **Northflank** (free Sandbox tier, EU region, **always-on** — no idle sleep). Reasoning captured in `todos.md` step 14. Render's free tier sleeps after 15 min idle; Scaleway/Clever Cloud were also evaluated but Scaleway's ephemeral filesystem breaks our file cache and Clever Cloud has no free tier.
+
 **What's blocking the live site:**
 1. **DNS** for `sprout-scout.at` — domain bought but no provider confirmation / panel access yet. Once available, add `CNAME www → heislsheimen.codeberg.page` and `A`/`AAAA` for the apex pointing at Codeberg's published IPs.
-2. **Backend deploy** — Render service not yet created. Set `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at` under env vars; add `api.sprout-scout.at` as a custom domain; matching CNAME at the DNS provider.
+2. **Backend deploy** — Northflank service not yet created. Pick an EU region, deploy from `backend/` via Python buildpack with start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. Set `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at` under env vars; add `api.sprout-scout.at` as a custom domain; CNAME `api` → `<service>.code.run` at the DNS provider. Full walkthrough in README *Backend → Northflank*.
 
 ## First message to Claude (resume)
 

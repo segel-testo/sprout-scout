@@ -25,8 +25,8 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Stop control (abort in-flight scan, keep partial results) | done |
 | Overpass retry-with-backoff + clean 503 on persistent failure | done |
 | SSRF hardening (private-IP block + manual redirect walk) | done |
-| Deploy frontend (Vercel) | next |
-| Deploy backend (Render) | next |
+| Deploy frontend (Codeberg Pages) | live (DNS pending) |
+| Deploy backend (Northflank) | next |
 
 ---
 
@@ -57,7 +57,7 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Streaming | Server-Sent Events (FastAPI `StreamingResponse`) |
 | Caching | File-based (`backend/.cache/`, 1 week TTL) |
 | Hosting (FE) | Codeberg Pages (Berlin, DE) |
-| Hosting (BE) | Render |
+| Hosting (BE) | Northflank (free Sandbox tier, EU region) |
 
 ---
 
@@ -178,9 +178,10 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 
 ## Next Steps
 
-- [ ] Deploy backend to Render (verify SSE works through Render's proxy; set `X-Accel-Buffering: no` is already emitted)
-- [ ] Deploy frontend to Codeberg Pages (see Deployment section below)
-- [ ] Browser smoke test of the toggle UX (click through both modes, verify empty-state + delivery-link buttons)
+- [x] Frontend deployed to Codeberg Pages (`pages` branch live; `307 → www.sprout-scout.at` confirmed)
+- [ ] DNS for `sprout-scout.at` (registrar panel access pending)
+- [ ] Deploy backend to Northflank (free Sandbox tier, EU region; verify SSE streams through cleanly with no proxy buffering)
+- [ ] Browser smoke test against the live origin once backend + DNS are up
 
 ---
 
@@ -245,14 +246,37 @@ to its servers.
 The site is then live at `https://www.sprout-scout.at/` (custom domain)
 and at `https://<your-user>.codeberg.page/sprout-scout/` (default URL).
 
-### Backend → Render
+### Backend → Northflank
 
-Render free tier serves a `Dockerfile` or a Python web service. The custom
-domain `api.sprout-scout.at` is wired in *Settings → Custom Domains* and
-points at Render via a `CNAME` record at the DNS provider. Render handles
-the TLS cert automatically.
+[Northflank](https://northflank.com)'s free **Sandbox** tier fits this
+project: always-on compute (no idle sleep, unlike Render free), 2 free
+services, 1 free database, EU regions available. The "not for production"
+label is about SLA, not capability — for a hobby launch with light
+traffic the trade-off is fine.
 
-**Required environment variables on Render:**
+#### One-time setup
+
+**1. Account + project.**
+- Sign up at <https://northflank.com> with the GitHub account that owns
+  the `sprout-scout` repo.
+- Create a new *Project* (e.g. `sprout-scout`). Pick an **EU region**
+  (Frankfurt or similar) so request latency from Austria is low and you
+  stay on EU infrastructure for GDPR posture.
+
+**2. Create a Combined Service** (build + deploy together):
+- *Source* → connect the GitHub repo, branch `main`, build context
+  `backend/`.
+- *Build* → either pick the **Python buildpack** (no Dockerfile needed —
+  Northflank detects `requirements.txt` and runs the start command you
+  give it) or write a small `backend/Dockerfile` if you want full control.
+  Buildpack start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
+- *Resources* → on the Sandbox tier the smallest preset is plenty for
+  this workload.
+- *Networking* → expose port `8000` (or `$PORT` if using buildpack) as a
+  public HTTP port. Northflank gives you a `*.code.run` URL immediately
+  for smoke testing.
+
+**3. Environment variables** (*Service → Variables*):
 
 | Variable | Value |
 |----------|-------|
@@ -261,11 +285,34 @@ the TLS cert automatically.
 `ALLOWED_ORIGINS` is a comma-separated list of frontend origins permitted
 to call the API. Without it, the backend defaults to
 `http://localhost:4200` only — production browsers would be blocked by
-CORS. If you also want to test from the Codeberg default URL before DNS
-flips, append `,https://<your-user>.codeberg.page` to the value.
+CORS. If you want to smoke-test from the Codeberg default URL before DNS
+flips, append `,https://heislsheimen.codeberg.page` to the value.
 
-If the API URL changes, edit `frontend/src/environments/environment.production.ts`
-and rebuild.
+**4. Custom domain.**
+- *Project → Domains* → add `sprout-scout.at`, verify ownership via the
+  TXT record Northflank shows.
+- Add subdomain `api.sprout-scout.at` and link it to the service's public
+  port. Northflank provisions a Let's Encrypt cert automatically once the
+  DNS `CNAME` for `api` resolves to the `*.code.run` host shown in the UI.
+
+**5. DNS** at your registrar:
+- `CNAME` `api` → `<service>.code.run` (exact value shown in the
+  Northflank custom-domain panel).
+
+#### Notes for this project
+
+- **SSE streams.** Northflank's container model is plain HTTP/1.1+2 to a
+  long-lived process — no per-request timeout cap to fight, no proxy
+  buffering you need to opt out of. The `_stream_scan` keepalive every
+  15s is still belt-and-braces but isn't required for the platform.
+- **File cache.** `backend/.cache/` lives on the container's local
+  filesystem. On always-on Sandbox compute it survives normal runtime;
+  it is wiped on redeploy or service restart, which matches the cache's
+  1-week TTL anyway. If you want true persistence, attach a Northflank
+  persistent volume mounted at `backend/.cache/` later.
+- **If the API URL changes**, edit
+  `frontend/src/environments/environment.production.ts` and redeploy
+  the frontend.
 
 ---
 

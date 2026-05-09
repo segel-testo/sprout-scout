@@ -128,10 +128,10 @@ Routes after the change: `/api/restaurants`, `/api/restaurants-by-radius`, `/api
 Standard Angular environment pattern in place. Production bundle no longer leaks `localhost:8000` (verified by `grep`).
 
 - New `frontend/src/environments/environment.ts` — `{ production: false, apiUrl: 'http://localhost:8000/api' }`.
-- New `frontend/src/environments/environment.production.ts` — `{ production: true, apiUrl: 'https://api.sprout-scout.at/api' }`. Subdomain split (frontend on `www.sprout-scout.at` via Vercel, backend on `api.sprout-scout.at` via Render with a CNAME). Reason for not collapsing onto a single Vercel-rewrite origin: SSE streams need unbuffered transport, and an extra Vercel proxy hop in front of the live scan stream is asking for buffering / connection-drop trouble.
+- New `frontend/src/environments/environment.production.ts` — `{ production: true, apiUrl: 'https://api.sprout-scout.at/api' }`. Subdomain split (frontend on `www.sprout-scout.at` via Codeberg Pages, backend on `api.sprout-scout.at` via Northflank with a CNAME to `<service>.code.run`). Reason for not collapsing onto a single origin: SSE streams need unbuffered transport, and any extra static-host proxy hop in front of the live scan stream is asking for buffering / connection-drop trouble.
 - `angular.json`: production configuration gained a `fileReplacements` entry swapping `environment.ts` for `environment.production.ts`. Also bumped the `anyComponentStyle` budget from 4kB warn / 8kB error to 12kB warn / 20kB error — pre-existing issue, `search.scss` had grown to 12kB over successive redesigns and was blocking the prod build entirely.
 - `services/restaurant.ts`: hardcoded literal replaced with `private apiUrl = environment.apiUrl;` (import from `'../../environments/environment'`).
-- Deploy note: when the Render service is created, point its custom-domain field at `api.sprout-scout.at` and add the matching CNAME in your DNS. If you change the API host, only `environment.production.ts` needs a one-line edit.
+- Deploy note: when the Northflank service is created, add `api.sprout-scout.at` as a custom domain in the project, link it to the service's public port, and add the matching CNAME in your DNS pointing at the `<service>.code.run` host shown in Northflank's panel. If you change the API host, only `environment.production.ts` needs a one-line edit.
 
 Dev build: 1.65 MB (unoptimized). Prod build: 310 kB raw / 80 kB gzipped main bundle, zero `localhost` strings in the output.
 
@@ -140,12 +140,12 @@ Dev build: 1.65 MB (unoptimized). Prod build: 310 kB raw / 80 kB gzipped main bu
 CORS is now env-driven so the production origin list lives on Render rather than baked into the image.
 
 - `backend/main.py`: reads `ALLOWED_ORIGINS` (comma-separated). Defaults to `http://localhost:4200` for dev so a fresh checkout works without env config. `allow_methods=["GET"]` — every public route is GET-only. `allow_headers=["*"]` is fine since `allow_credentials` stays at its default (`False`); no cookies, no auth, no preflight surface to widen.
-- Production env var on Render (documented in README *Backend → Render*): `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Append `,https://<user>.codeberg.page` while DNS is propagating if you want to smoke-test the default Codeberg URL.
+- Production env var on Northflank (documented in README *Backend → Northflank*): `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Append `,https://heislsheimen.codeberg.page` while DNS is propagating if you want to smoke-test the default Codeberg URL.
 - Verified: backend imports cleanly with the default origin list, env var parsing trims whitespace and drops empty entries, integration regression (`tests.scan_examples`) still produces the five expected outcomes.
 
 ## ✅ 19. Replace cache-key sanitization with a hash — DONE
 
-`backend/services/cache.py` — `_cache_path` now returns `CACHE_DIR / f"{sha256(key)}.json"`. Path traversal via key contents is impossible by construction; the only thing the function can ever produce is a 64-hex-char filename inside `CACHE_DIR`. Existing `.cache/` files keyed by the old sanitizer become orphans on first run after deploy — harmless (1-week TTL would have expired them anyway, and on Render the disk is ephemeral so the cache rebuilds on every cold start). Locally you can `rm -rf backend/.cache/` if you want a clean slate. Integration test still produces all five expected outcomes.
+`backend/services/cache.py` — `_cache_path` now returns `CACHE_DIR / f"{sha256(key)}.json"`. Path traversal via key contents is impossible by construction; the only thing the function can ever produce is a 64-hex-char filename inside `CACHE_DIR`. Existing `.cache/` files keyed by the old sanitizer become orphans on first run after deploy — harmless (1-week TTL would have expired them anyway). On Northflank's always-on Sandbox compute the local filesystem survives normal runtime; the cache only rebuilds on redeploy or service restart, which fits the 1-week TTL fine. A persistent volume can be attached later if true cross-deploy persistence is wanted. Locally you can `rm -rf backend/.cache/` if you want a clean slate. Integration test still produces all five expected outcomes.
 
 ## ✅ 21 + 22 + 23. Legal pages (Impressum, OSM attribution, Privacy) — DONE
 
@@ -202,8 +202,11 @@ Still open as a follow-up if desired (deferred — separate from launch blockers
 14. Deploy — **in progress**.
     - ✅ Codeberg account created (`heislsheimen`), SSH key generated and registered, `codeberg.org/heislsheimen/sprout-scout` repo created.
     - ✅ First frontend deploy ran via `frontend/scripts/deploy-codeberg.ps1` — `pages` branch live, `curl https://heislsheimen.codeberg.page/sprout-scout/` returns `307 → https://www.sprout-scout.at/` (proves `.domains` works, bundle is up).
-    - ⏳ **DNS** — domain `sprout-scout.at` bought but registrar panel not yet accessible. When available, add `CNAME www → heislsheimen.codeberg.page` and `A`/`AAAA` for the apex pointing at Codeberg's published IPs (see [Codeberg custom-domain docs](https://docs.codeberg.org/codeberg-pages/custom-domain/) — IPs may rotate). Codeberg auto-provisions Let's Encrypt cert once DNS resolves.
-    - ⏳ **Backend on Render** — Python web service from the GitHub repo. Required env var: `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Custom domain `api.sprout-scout.at` + matching `CNAME` at DNS.
+    - ✅ **Backend host decision (2026-05-09)** — moved off Render to **Northflank** (free Sandbox tier, always-on, EU region). Reasoning: Render free sleeps after 15 min idle; Scaleway Serverless Containers' ephemeral filesystem would invalidate the file cache on every cold start; Clever Cloud has no free tier. Northflank's "not for production" label is about SLA, not capability — acceptable for a hobby launch. See README *Backend → Northflank* for the full setup walkthrough.
+    - ⏳ **DNS** — domain `sprout-scout.at` bought but registrar panel not yet accessible. When available:
+      - `CNAME www → heislsheimen.codeberg.page` and `A`/`AAAA` for the apex pointing at Codeberg's published IPs (see [Codeberg custom-domain docs](https://docs.codeberg.org/codeberg-pages/custom-domain/) — IPs may rotate). Codeberg auto-provisions Let's Encrypt cert once DNS resolves.
+      - `CNAME api → <service>.code.run` (exact host shown in Northflank's custom-domain panel). Northflank auto-provisions Let's Encrypt cert once DNS resolves.
+    - ⏳ **Backend on Northflank** — create project in EU region, deploy `backend/` via Python buildpack with start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. Env var `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at`. Add `api.sprout-scout.at` as custom domain.
     - ⏳ **Smoke test** once both endpoints respond: zip search, radius search ("Near me"), Impressum + Privacy modals, OSM attribution link.
 
 ## Out of scope (confirmed)
