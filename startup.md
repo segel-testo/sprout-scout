@@ -14,11 +14,16 @@ All v1 hardening shipped — legal pages, env-driven `apiUrl`, CORS lockdown, SH
 
 Frontend successfully deployed to Codeberg Pages once: `pages` branch on `codeberg.org/heislsheimen/sprout-scout` is live. Codeberg returns `307 → https://www.sprout-scout.at/` (correct behavior — `.domains` is in the build), confirming the bundle is up.
 
-**Backend host decision changed (2026-05-09):** moved off Render in favor of **Northflank** (free Sandbox tier, EU region, **always-on** — no idle sleep). Reasoning captured in `todos.md` step 14. Render's free tier sleeps after 15 min idle; Scaleway/Clever Cloud were also evaluated but Scaleway's ephemeral filesystem breaks our file cache and Clever Cloud has no free tier.
+**Backend host pivoted again (2026-05-09):** Briefly attempted Northflank, but their "free Sandbox" turned out to meter compute on top of the structural slot (~$5.40/month at smallest size), so it isn't actually free. Pivoted to **Scaleway Serverless Containers** (`fr-par`) with **scale-to-zero** + cache backed by **Scaleway Object Storage**. Bill: €0/month within the recurring monthly free tier. Trade-off: 1–3s cold start on the first request after a 15-min idle window (acceptable for hobby traffic). Full reasoning + walkthrough in README *Backend → Scaleway Serverless Containers*.
+
+**Backend is live.** Image built via GitHub Actions (`.github/workflows/build-backend.yml`) and pushed to `rg.fr-par.scw.cloud/sprout-scout/sprout-scout-api:latest`. Container is deployed and answering on `https://<host>.functions.fnc.fr-par.scw.cloud`. Cache writes verified end-to-end against Object Storage bucket `sprout-scout-cache`.
 
 **What's blocking the live site:**
-1. **DNS** for `sprout-scout.at` — domain bought but no provider confirmation / panel access yet. Once available, add `CNAME www → heislsheimen.codeberg.page` and `A`/`AAAA` for the apex pointing at Codeberg's published IPs.
-2. **Backend deploy** — Northflank service not yet created. Pick an EU region, deploy from `backend/` via Python buildpack with start command `uvicorn main:app --host 0.0.0.0 --port $PORT`. Set `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at` under env vars; add `api.sprout-scout.at` as a custom domain; CNAME `api` → `<service>.code.run` at the DNS provider. Full walkthrough in README *Backend → Northflank*.
+1. **DNS** for `sprout-scout.at` — domain bought but no provider confirmation / panel access yet. When available, add three records:
+   - `CNAME www → heislsheimen.codeberg.page` (frontend)
+   - `A`/`AAAA` for the apex → Codeberg's published IPs (frontend)
+   - `CNAME api → <container-host>.functions.fnc.fr-par.scw.cloud` (backend)
+2. **Custom domain link in Scaleway** — once DNS resolves, add `api.sprout-scout.at` to the container's custom domains panel; Scaleway auto-provisions a Let's Encrypt cert.
 
 ## First message to Claude (resume)
 

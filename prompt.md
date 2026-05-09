@@ -59,7 +59,7 @@ Skim, don't memorize. The code is the truth.
 
 **Legal first**: #21 Impressum, #22 OSM attribution, #23 privacy notice — these are the actual launch blockers under Austrian law / GDPR / ODbL. Then #17 (environment-based `apiUrl`, otherwise the production build calls `localhost:8000` and the site is dead in production), #18 (CORS lockdown), #19 (cache-key SHA-256), #20 (counter.dev SRI + CSP). After legal + deploy work lands, pick up #5 (OCR fallback) and #10 (cleanup, including the unused `RestaurantCard.index` input).
 
-**Note (2026-05-09):** all the items above are now done. Active work is the Northflank backend deploy + DNS for `sprout-scout.at`. See `startup.md` for the live state and the README *Backend → Northflank* section for the deploy walkthrough.
+**Note (2026-05-09):** all the items above are now done. Backend now lives on **Scaleway Serverless Containers** (`fr-par`, scale-to-zero) with cache backed by **Scaleway Object Storage** — pivoted from a brief Northflank attempt because Northflank's "free" tier wasn't actually free at the smallest preset. Active remaining work is **DNS for `sprout-scout.at`** (registrar panel access) + linking `api.sprout-scout.at` as a custom domain on the Scaleway container. See `startup.md` for the live state and the README *Backend → Scaleway Serverless Containers* section for the deploy walkthrough.
 
 ```bash
 cd backend && venv/Scripts/python -m tests.scan_examples

@@ -26,7 +26,7 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Overpass retry-with-backoff + clean 503 on persistent failure | done |
 | SSRF hardening (private-IP block + manual redirect walk) | done |
 | Deploy frontend (Codeberg Pages) | live (DNS pending) |
-| Deploy backend (Northflank) | next |
+| Deploy backend (Scaleway Serverless Containers, fr-par) | live (DNS pending) |
 
 ---
 
@@ -57,7 +57,8 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Streaming | Server-Sent Events (FastAPI `StreamingResponse`) |
 | Caching | File-based (`backend/.cache/`, 1 week TTL) |
 | Hosting (FE) | Codeberg Pages (Berlin, DE) |
-| Hosting (BE) | Northflank (free Sandbox tier, EU region) |
+| Hosting (BE) | Scaleway Serverless Containers (fr-par, scale-to-zero, EU sovereign) |
+| Cache backend (prod) | Scaleway Object Storage (S3-compatible) |
 
 ---
 
@@ -180,8 +181,8 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 
 - [x] Frontend deployed to Codeberg Pages (`pages` branch live; `307 → www.sprout-scout.at` confirmed)
 - [ ] DNS for `sprout-scout.at` (registrar panel access pending)
-- [ ] Deploy backend to Northflank (free Sandbox tier, EU region; verify SSE streams through cleanly with no proxy buffering)
-- [ ] Browser smoke test against the live origin once backend + DNS are up
+- [x] Backend deployed to Scaleway Serverless Containers (`fr-par`); cache writes verified against Scaleway Object Storage; `/api/restaurants` returns 200 over the auto-assigned `*.functions.fnc.fr-par.scw.cloud` URL
+- [ ] Browser smoke test against the live origin once DNS is wired and `api.sprout-scout.at` resolves
 
 ---
 
@@ -246,70 +247,107 @@ to its servers.
 The site is then live at `https://www.sprout-scout.at/` (custom domain)
 and at `https://<your-user>.codeberg.page/sprout-scout/` (default URL).
 
-### Backend → Northflank
+### Backend → Scaleway Serverless Containers
 
-[Northflank](https://northflank.com)'s free **Sandbox** tier fits this
-project: always-on compute (no idle sleep, unlike Render free), 2 free
-services, 1 free database, EU regions available. The "not for production"
-label is about SLA, not capability — for a hobby launch with light
-traffic the trade-off is fine.
+[Scaleway](https://scaleway.com) is a French sovereign cloud with a
+real recurring free tier for serverless containers (400 000 GB-s memory
++ 200 000 vCPU-s per month). Region `fr-par` (Paris) keeps everything
+in EU jurisdiction. **Scale-to-zero** after 15 min of idle keeps the
+bill at €0 for hobby-traffic; the cost is a 1–3s cold start on the
+first request after an idle period.
+
+The image is built in CI and pushed to Scaleway Container Registry; the
+serverless container pulls from there. The file cache is replaced by an
+S3-compatible cache on Scaleway Object Storage so cached scans survive
+across cold starts.
 
 #### One-time setup
 
-**1. Account + project.**
-- Sign up at <https://northflank.com> with the GitHub account that owns
-  the `sprout-scout` repo.
-- Create a new *Project* (e.g. `sprout-scout`). Pick an **EU region**
-  (Frankfurt or similar) so request latency from Austria is low and you
-  stay on EU infrastructure for GDPR posture.
+**1. Scaleway account + region.**
+- Sign up at <https://console.scaleway.com>. A payment method is
+  required even for the free tier (Scaleway uses it for KYC; they don't
+  charge unless you exceed the free pool).
+- Top-bar region selector: `fr-par`.
 
-**2. Create a Combined Service** (build + deploy together):
-- *Source* → connect the GitHub repo, branch `main`, build context
-  `backend/`.
-- *Build* → either pick the **Python buildpack** (no Dockerfile needed —
-  Northflank detects `requirements.txt` and runs the start command you
-  give it) or write a small `backend/Dockerfile` if you want full control.
-  Buildpack start command: `uvicorn main:app --host 0.0.0.0 --port $PORT`.
-- *Resources* → on the Sandbox tier the smallest preset is plenty for
-  this workload.
-- *Networking* → expose port `8000` (or `$PORT` if using buildpack) as a
-  public HTTP port. Northflank gives you a `*.code.run` URL immediately
-  for smoke testing.
+**2. Object Storage bucket** (*Storage → Object Storage*):
+- Create a private **Standard Multi-AZ** bucket named `sprout-scout-cache`
+  in `fr-par`. Versioning + Object Lock off.
+- Generate an API key from *avatar → IAM → API keys* (bearer = yourself).
+  Save the **Access key ID** and **Secret key** — secret is shown once.
 
-**3. Environment variables** (*Service → Variables*):
+**3. Container Registry namespace** (*Containers → Container Registry*):
+- Create namespace `sprout-scout` in `fr-par`, **Private**.
+- Registry URL becomes `rg.fr-par.scw.cloud/sprout-scout`. The CI
+  workflow (`.github/workflows/build-backend.yml`) is hardcoded to
+  push there.
 
-| Variable | Value |
-|----------|-------|
-| `ALLOWED_ORIGINS` | `https://www.sprout-scout.at,https://sprout-scout.at` |
+**4. CI build secret** (GitHub repo settings → *Secrets and variables → Actions*):
 
-`ALLOWED_ORIGINS` is a comma-separated list of frontend origins permitted
-to call the API. Without it, the backend defaults to
-`http://localhost:4200` only — production browsers would be blocked by
-CORS. If you want to smoke-test from the Codeberg default URL before DNS
-flips, append `,https://heislsheimen.codeberg.page` to the value.
+| Secret | Value |
+|--------|-------|
+| `SCW_SECRET_KEY` | the Scaleway secret key from step 2 |
 
-**4. Custom domain.**
-- *Project → Domains* → add `sprout-scout.at`, verify ownership via the
-  TXT record Northflank shows.
-- Add subdomain `api.sprout-scout.at` and link it to the service's public
-  port. Northflank provisions a Let's Encrypt cert automatically once the
-  DNS `CNAME` for `api` resolves to the `*.code.run` host shown in the UI.
+Every push to `main` that touches `backend/` triggers
+`docker build` + push to the registry — ~3 min total.
 
-**5. DNS** at your registrar:
-- `CNAME` `api` → `<service>.code.run` (exact value shown in the
-  Northflank custom-domain panel).
+**5. Serverless Container** (*Serverless → Containers*):
+- Create namespace `sprout-scout` in `fr-par`.
+- Deploy a container from `rg.fr-par.scw.cloud/sprout-scout/sprout-scout-api:latest`.
+
+| Setting | Value |
+|---------|-------|
+| Container name | `sprout-scout-api` |
+| Port | `8000` |
+| Memory | `256 MB` |
+| vCPU | `100 mvCPU` |
+| Min scale | `0` (scale-to-zero — keeps it free) |
+| Max scale | `5` |
+| Request timeout | `300` s |
+| Sandbox | `v2` (faster cold starts) |
+| Privacy | **Public** |
+
+**6. Environment variables on the container:**
+
+| Variable | Value | Type |
+|----------|-------|------|
+| `ALLOWED_ORIGINS` | `https://www.sprout-scout.at,https://sprout-scout.at,https://heislsheimen.codeberg.page` | normal |
+| `CACHE_S3_BUCKET` | `sprout-scout-cache` | normal |
+| `CACHE_S3_ACCESS_KEY` | Scaleway access key ID (`SCW…`) | normal |
+| `CACHE_S3_SECRET_KEY` | Scaleway secret key | **Secret** ✅ |
+
+The `CACHE_S3_*` variables flip `backend/services/cache.py` from its
+default file backend to the S3 backend. Endpoint defaults to
+`https://s3.fr-par.scw.cloud` and region to `fr-par`; both can be
+overridden via `CACHE_S3_ENDPOINT` / `CACHE_S3_REGION`.
+
+The Codeberg default URL stays in `ALLOWED_ORIGINS` so you can
+smoke-test the live frontend before DNS flips. Drop it after launch.
+
+**7. Custom domain.**
+- *Container → Custom domains* → add `api.sprout-scout.at`.
+- At the registrar, add `CNAME api → <container-host>.functions.fnc.fr-par.scw.cloud`
+  (exact host shown in the container detail page).
+- Scaleway auto-provisions a Let's Encrypt cert once DNS resolves.
 
 #### Notes for this project
 
-- **SSE streams.** Northflank's container model is plain HTTP/1.1+2 to a
-  long-lived process — no per-request timeout cap to fight, no proxy
-  buffering you need to opt out of. The `_stream_scan` keepalive every
-  15s is still belt-and-braces but isn't required for the platform.
-- **File cache.** `backend/.cache/` lives on the container's local
-  filesystem. On always-on Sandbox compute it survives normal runtime;
-  it is wiped on redeploy or service restart, which matches the cache's
-  1-week TTL anyway. If you want true persistence, attach a Northflank
-  persistent volume mounted at `backend/.cache/` later.
+- **SSE streams.** Scaleway supports HTTP/1.1 + HTTP/2 with chunked
+  transfer encoding. The 300 s request timeout is well above the
+  worst-case SSE scan duration (Vienna 1010 caps around 2–3 min). The
+  `X-Accel-Buffering: no` header the backend already emits covers any
+  edge proxy that might otherwise buffer SSE frames.
+- **Cache backend.** `services/cache.py` auto-detects: if all three
+  `CACHE_S3_BUCKET` / `CACHE_S3_ACCESS_KEY` / `CACHE_S3_SECRET_KEY` are
+  set, it writes JSON blobs to Object Storage; otherwise it falls back
+  to local file I/O for dev. Same public API (`get_cached`,
+  `set_cached`, `get_namespaced`, `set_namespaced`) either way. Object
+  Storage requests are free; storage is ~€0.002/GB/month after the
+  90-day trial — for the project's <100 MB cache, effectively €0
+  forever.
+- **Cold start budget.** A 1–3 s pause hits the first user of each
+  ~15-min-idle window. With ~3–4 sessions/day at 100 users/month, that
+  cold start is amortised across the rest of the session, and the
+  cache (now persistent across cold starts) absorbs subsequent loads.
 - **If the API URL changes**, edit
   `frontend/src/environments/environment.production.ts` and redeploy
   the frontend.
