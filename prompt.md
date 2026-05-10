@@ -31,7 +31,7 @@ Skim, don't memorize. The code is the truth.
 
 - **#21 Impressum** — Austrian *E-Commerce-Gesetz § 5 (1)* requires every publicly accessible site served from / targeting Austrian users to display name + address + email. Applies to non-commercial hobby sites too. Static page or footer modal.
 - **#22 OSM attribution** — ODbL § 4.3 requires "© OpenStreetMap contributors" with a link to <https://www.openstreetmap.org/copyright> wherever Overpass data is surfaced. Currently nowhere.
-- **#23 privacy notice** — GDPR Art. 13. Static page covering: search terms / IP / geolocation, retention, processors (Render, Vercel, Google Fonts, counter.dev if kept), data subject rights, contact.
+- **#23 privacy notice** — GDPR Art. 13. Static page covering: search terms / IP / geolocation, retention, processors (Scaleway, Codeberg, Google Fonts, counter.dev if kept), data subject rights, contact.
 - **#17** — move frontend `apiUrl` (`services/restaurant.ts:35`) into Angular `environments/` files; required for the Codeberg Pages deploy to point at the production API.
 - **#18** — restrict `CORSMiddleware` `allow_origins` to the deployed Codeberg/custom domain + localhost.
 - **#19** — replace cache-key sanitizer in `services/cache.py` with a SHA-256 hash so future cache keys can't path-traverse.
@@ -59,7 +59,7 @@ Skim, don't memorize. The code is the truth.
 
 **Legal first**: #21 Impressum, #22 OSM attribution, #23 privacy notice — these are the actual launch blockers under Austrian law / GDPR / ODbL. Then #17 (environment-based `apiUrl`, otherwise the production build calls `localhost:8000` and the site is dead in production), #18 (CORS lockdown), #19 (cache-key SHA-256), #20 (counter.dev SRI + CSP). After legal + deploy work lands, pick up #5 (OCR fallback) and #10 (cleanup, including the unused `RestaurantCard.index` input).
 
-**Note (2026-05-09):** all the items above are now done. Backend now lives on **Scaleway Serverless Containers** (`fr-par`, scale-to-zero) with cache backed by **Scaleway Object Storage** — pivoted from a brief Northflank attempt because Northflank's "free" tier wasn't actually free at the smallest preset. Active remaining work is **DNS for `sprout-scout.at`** (registrar panel access) + linking `api.sprout-scout.at` as a custom domain on the Scaleway container. See `startup.md` for the live state and the README *Backend → Scaleway Serverless Containers* section for the deploy walkthrough.
+**Note (2026-05-10):** all the items above are now done **and the site is live**. Frontend on Codeberg Pages serving <https://sprout-scout.at/>; backend on Scaleway Serverless Containers (`fr-par`, scale-to-zero, S3-backed cache) at <https://api.sprout-scout.at/>. DNS landed via easyname after switching from the initial registrar. Smoke test (zip + radius + legal modals + OSM attribution) passed end-to-end. See `startup.md` for the live state and the README *Backend → Scaleway Serverless Containers* section for the deploy walkthrough. Active future work: anything in the v2 backlog (OCR fallback, see todos.md) — only worth it once usage justifies it.
 
 ```bash
 cd backend && venv/Scripts/python -m tests.scan_examples

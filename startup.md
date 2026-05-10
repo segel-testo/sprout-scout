@@ -8,26 +8,17 @@ Resume here after a break.
 - **Deploy repo (Codeberg):** https://codeberg.org/heislsheimen/sprout-scout
 - **Local path:** `C:\Vali\coding\sprout-scout`
 
-## Where we stopped (2026-05-09)
+## Where we stopped (2026-05-10)
 
-All v1 hardening shipped — legal pages, env-driven `apiUrl`, CORS lockdown, SHA-256 cache keys, real counter.dev ID, dead-code cleanup. **Latest commit on `main`: `62e7870`.**
+**The site is live at <https://sprout-scout.at/>.** Backend at <https://api.sprout-scout.at/> (Scaleway, fr-par, scale-to-zero with S3-backed cache). Frontend on Codeberg Pages.
 
-Frontend successfully deployed to Codeberg Pages once: `pages` branch on `codeberg.org/heislsheimen/sprout-scout` is live. Codeberg returns `307 → https://www.sprout-scout.at/` (correct behavior — `.domains` is in the build), confirming the bundle is up.
+DNS landed via easyname (domain switched from the initial registrar). Records: apex `A 217.197.84.141` + `AAAA 2a0a:4580:103f:c0de::2` (Codeberg), apex `TXT sprout-scout.heislsheimen.codeberg.page` (Codeberg's apex owner-lookup — without it pages-server returns 424 *"could not obtain repo owner from custom domain"*), `www CNAME sprout-scout.heislsheimen.codeberg.page` (project-site format, **not** `heislsheimen.codeberg.page`), `api CNAME sproutscout6ac23ac7-sprout-scout-api.functions.fnc.fr-par.scw.cloud` + custom domain added on the container so Scaleway auto-provisioned a Let's Encrypt cert.
 
-**Backend host pivoted again (2026-05-09):** Briefly attempted Northflank, but their "free Sandbox" turned out to meter compute on top of the structural slot (~$5.40/month at smallest size), so it isn't actually free. Pivoted to **Scaleway Serverless Containers** (`fr-par`) with **scale-to-zero** + cache backed by **Scaleway Object Storage**. Bill: €0/month within the recurring monthly free tier. Trade-off: 1–3s cold start on the first request after a 15-min idle window (acceptable for hobby traffic). Full reasoning + walkthrough in README *Backend → Scaleway Serverless Containers*.
-
-**Backend is live.** Image built via GitHub Actions (`.github/workflows/build-backend.yml`) and pushed to `rg.fr-par.scw.cloud/sprout-scout/sprout-scout-api:latest`. Container is deployed and answering on `https://<host>.functions.fnc.fr-par.scw.cloud`. Cache writes verified end-to-end against Object Storage bucket `sprout-scout-cache`.
-
-**What's blocking the live site:**
-1. **DNS** for `sprout-scout.at` — domain bought but no provider confirmation / panel access yet. When available, add three records:
-   - `CNAME www → heislsheimen.codeberg.page` (frontend)
-   - `A`/`AAAA` for the apex → Codeberg's published IPs (frontend)
-   - `CNAME api → <container-host>.functions.fnc.fr-par.scw.cloud` (backend)
-2. **Custom domain link in Scaleway** — once DNS resolves, add `api.sprout-scout.at` to the container's custom domains panel; Scaleway auto-provisions a Let's Encrypt cert.
+`.domains` order is `sprout-scout.at` then `www.sprout-scout.at`. Apex is canonical (default URL 307-redirects there). Smoke test passed: zip search, "Near me" radius, Impressum + Privacy modals, OSM attribution. `www` may briefly 421 right after cert flips but self-resolves as Caddy on-demand TLS retries.
 
 ## First message to Claude (resume)
 
-> Resume sprout-scout. Read `startup.md`, `todos.md`, and the *Deployment* section of `README.md`. Summarize: what's the latest deploy state, what's still blocked on DNS, what's the next concrete step?
+> Resume sprout-scout. Read `startup.md`, `todos.md`, and the *Deployment* section of `README.md`. Anything in the v2 backlog still worth picking up?
 
 ## Run it locally
 

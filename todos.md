@@ -100,7 +100,7 @@ Build passes (`ng build --configuration development`). Backend module imports cl
 
 ## 🔒 Pre-launch security hardening
 
-Audit done 2026-05-08 against the deployed-but-unreleased state of `main`. Items are ordered by severity. **#15 is a launch blocker** — public, anonymous SSRF into Render's metadata endpoint and internal services.
+Audit done 2026-05-08 against the deployed-but-unreleased state of `main`. Items are ordered by severity. **#15 is a launch blocker** — public, anonymous SSRF into the cloud provider's metadata endpoint and internal services.
 
 ## ✅ 15. Block SSRF in the scanner — DONE
 
@@ -137,7 +137,7 @@ Dev build: 1.65 MB (unoptimized). Prod build: 310 kB raw / 80 kB gzipped main bu
 
 ## ✅ 18. Tighten CORS — DONE
 
-CORS is now env-driven so the production origin list lives on Render rather than baked into the image.
+CORS is now env-driven so the production origin list lives on Scaleway rather than baked into the image.
 
 - `backend/main.py`: reads `ALLOWED_ORIGINS` (comma-separated). Defaults to `http://localhost:4200` for dev so a fresh checkout works without env config. `allow_methods=["GET"]` — every public route is GET-only. `allow_headers=["*"]` is fine since `allow_credentials` stays at its default (`False`); no cookies, no auth, no preflight surface to widen.
 - Production env var on the Scaleway container (documented in README *Backend → Scaleway Serverless Containers*): `ALLOWED_ORIGINS=https://www.sprout-scout.at,https://sprout-scout.at,https://heislsheimen.codeberg.page` (Codeberg URL stays in until launch so the live frontend can be smoke-tested before DNS flips).
@@ -158,7 +158,7 @@ Audit-driven legal triple shipped via a single non-disruptive modal pattern. The
   2. **OSM attribution** — `Restaurant data © OpenStreetMap contributors.` with the required link to `openstreetmap.org/copyright` (ODbL § 4.3),
   3. footer nav with `Impressum · Privacy` buttons that open the modal.
 - **Impressum content** — Information gemäß § 5 ECG / § 25 MedienG: Valentin Röcklinger, K. Elisabethstrasse 13, 2340 Mödling, Austria, heislsheimen@gmail.com. Marked as non-commercial hobby project (no Firmenbuch/UID).
-- **Privacy content** — GDPR Art. 13 notice: search terms / IP / geolocation / cached scan results, processors (Render, Vercel, Google Fonts, OSM/Overpass), GDPR Art. 15–21 rights with Datenschutzbehörde complaint link, contact email.
+- **Privacy content** — GDPR Art. 13 notice: search terms / IP / geolocation / cached scan results, processors (Codeberg Pages, Scaleway, Google Fonts, OSM/Overpass), GDPR Art. 15–21 rights with Datenschutzbehörde complaint link, contact email.
 - `search.html` + `.scss` — radius-mode now shows a small inline `geo-note` directly under the tabs: *"Your location is sent to find nearby restaurants. We don't store it."* So the user reads the consent statement before they hit Search.
 - `README.md` Design Decisions section — new "Data attribution" bullet documenting the ODbL license and its § 4.3 attribution requirement.
 
@@ -199,16 +199,15 @@ Still open as a follow-up if desired (deferred — separate from launch blockers
 11. ~~#18 CORS lockdown~~ — done.
 12. ~~#19 cache-key hash + #20 counter.dev real ID~~ — done. (CSP / SRI deferred as separate follow-ups, see #20.)
 13. ~~#10 cleanup~~ — done.
-14. Deploy — **in progress**.
+14. Deploy — **done (2026-05-10)**.
     - ✅ Codeberg account created (`heislsheimen`), SSH key generated and registered, `codeberg.org/heislsheimen/sprout-scout` repo created.
     - ✅ First frontend deploy ran via `frontend/scripts/deploy-codeberg.ps1` — `pages` branch live, `curl https://heislsheimen.codeberg.page/sprout-scout/` returns `307 → https://www.sprout-scout.at/` (proves `.domains` works, bundle is up).
     - ✅ **Backend host decision (2026-05-09)** — Render rejected (15-min idle sleep). Northflank tried briefly but its "free Sandbox" plan meters compute on top of the slot (~$5.40/month at smallest size), so it isn't actually free. Settled on **Scaleway Serverless Containers** (`fr-par`) with **scale-to-zero** + cache backed by **Scaleway Object Storage**. Bill: €0/month within the recurring monthly free tier (400 000 GB-s memory + 200 000 vCPU-s). Trade-off: 1–3 s cold start on the first request after a 15-min idle window. Cache porting (~50 lines in `services/cache.py`) preserves cache across cold starts. Clever Cloud (~€5/mo always-on) and min-scale=1 on Scaleway (~€2/mo) are escape valves if cold starts ever bother us. See README *Backend → Scaleway Serverless Containers* for the full setup walkthrough.
     - ✅ **Backend deployed** — image built via GitHub Actions (`.github/workflows/build-backend.yml`, secret `SCW_SECRET_KEY`) and pushed to `rg.fr-par.scw.cloud/sprout-scout/sprout-scout-api:latest`. Container running at `https://<host>.functions.fnc.fr-par.scw.cloud` with 256 MB / 100 mvCPU, min-scale 0 / max-scale 5, sandbox v2, request timeout 300 s. Env vars: `ALLOWED_ORIGINS`, `CACHE_S3_BUCKET=sprout-scout-cache`, `CACHE_S3_ACCESS_KEY`, `CACHE_S3_SECRET_KEY` (marked Secret). Smoke test: `/api/restaurants?zip_code=2346&country=AT` → 200 with empty `restaurants` array (correct — no OSM matches in 2346); first request wrote a JSON object to the bucket.
-    - ⏳ **DNS** — domain `sprout-scout.at` bought but registrar panel not yet accessible. When available:
-      - `CNAME www → heislsheimen.codeberg.page` and `A`/`AAAA` for the apex pointing at Codeberg's published IPs (see [Codeberg custom-domain docs](https://docs.codeberg.org/codeberg-pages/custom-domain/) — IPs may rotate). Codeberg auto-provisions Let's Encrypt cert once DNS resolves.
-      - `CNAME api → <container-host>.functions.fnc.fr-par.scw.cloud` (exact host shown in the Scaleway container detail page). Scaleway auto-provisions Let's Encrypt cert once DNS resolves.
-    - ⏳ **Custom domain on Scaleway** — add `api.sprout-scout.at` to the container's *Custom domains* panel once DNS is live.
-    - ⏳ **Smoke test against the live origin** once both endpoints respond: zip search, radius search ("Near me"), Impressum + Privacy modals, OSM attribution link.
+    - ✅ **DNS (2026-05-10)** — domain switched from initial registrar to easyname. Records at easyname's `cns1/2/3.cloudpit` nameservers: apex `A 217.197.84.141` + `AAAA 2a0a:4580:103f:c0de::2` (Codeberg), apex `TXT sprout-scout.heislsheimen.codeberg.page` (required for Codeberg apex owner-lookup — without it pages-server returns 424 *"could not obtain repo owner from custom domain"*), `www CNAME sprout-scout.heislsheimen.codeberg.page` (project-site format, **not** `heislsheimen.codeberg.page` — that's the personal-site format and won't resolve owner for project repos), `api CNAME sproutscout6ac23ac7-sprout-scout-api.functions.fnc.fr-par.scw.cloud`.
+    - ✅ **Custom domain on Scaleway** — `api.sprout-scout.at` added; Let's Encrypt cert provisioned. `https://api.sprout-scout.at/health` returns `{"status":"ok"}`.
+    - ✅ **Frontend canonical flipped to apex.** `.domains` order is `sprout-scout.at` then `www.sprout-scout.at`; default URL `heislsheimen.codeberg.page/sprout-scout/` 307-redirects to `https://sprout-scout.at/`. Apex serves the Angular bundle; www currently 421s (cert under new CNAME hadn't issued yet at flip time — self-resolves as Caddy on-demand TLS retries).
+    - ✅ **Smoke test (live origin)** — zip search, "Near me" radius, Impressum + Privacy modals, OSM attribution all confirmed working.
 
 ## Out of scope (confirmed)
 
@@ -226,11 +225,11 @@ Things deferred until after the v1 public launch. Pick up when there's a reason 
 
 **Target case:** `zuminderhof.at` ships a scanned PDF menu — `pdfplumber.extract_text()` returns empty, so the scanner currently surfaces it as `no_menu` even though the word *vegan* is visible on the page.
 
-**Why deferred:** adds Tesseract + Poppler as system dependencies, which means writing a `Dockerfile` for Render instead of using the simple Python web service template. Worth it once we know v1 traffic justifies the deploy complexity, or once a second image-only PDF surfaces.
+**Why deferred:** adds Tesseract + Poppler as system dependencies, which means extending the existing Scaleway container `Dockerfile` and accepting a larger image / longer cold start. Worth it once we know v1 traffic justifies the deploy complexity, or once a second image-only PDF surfaces.
 
 **Plan when picked up:**
 - `backend/services/adapters/pdf.py` — after `pdfplumber.extract_text()`, check whether the result is empty (or below a small whitespace threshold, e.g. <20 non-whitespace chars across all pages). **OCR runs *only* if normal extraction is empty** — if extraction yields text but no vegan keyword matches, *don't* OCR. Keeps the common path fast.
 - If empty → fall through to OCR: rasterize each page with `pdf2image`, run `pytesseract.image_to_string`, concatenate.
-- New pip deps: `pytesseract`, `pdf2image`. System deps: Tesseract binary, Poppler. Document in `backend/requirements.txt` + a "System dependencies" section in README. Render deploy switches from buildpack to `Dockerfile`.
+- New pip deps: `pytesseract`, `pdf2image`. System deps: Tesseract binary, Poppler. Add `apt-get install` lines for those to the existing `backend/Dockerfile` and document in `backend/requirements.txt` + a "System dependencies" section in README.
 - Per-PDF OCR timeout cap (e.g. 15s) so a 50-page scanned menu doesn't blow the 25s scan timeout for the whole restaurant.
 - Verify against `zuminderhof.at`: download the PDF, confirm `extract_text()` returns empty, confirm OCR finds "vegan".

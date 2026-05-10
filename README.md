@@ -25,8 +25,8 @@ Find vegan dishes at local restaurants — search by zip code, we scan the menus
 | Stop control (abort in-flight scan, keep partial results) | done |
 | Overpass retry-with-backoff + clean 503 on persistent failure | done |
 | SSRF hardening (private-IP block + manual redirect walk) | done |
-| Deploy frontend (Codeberg Pages) | live (DNS pending) |
-| Deploy backend (Scaleway Serverless Containers, fr-par) | live (DNS pending) |
+| Deploy frontend (Codeberg Pages) | live at https://sprout-scout.at/ |
+| Deploy backend (Scaleway Serverless Containers, fr-par) | live at https://api.sprout-scout.at/ |
 
 ---
 
@@ -179,10 +179,10 @@ Expected output: Zen → delivery link, Akakiko → dishes, Pizzeria Ofenbarung 
 
 ## Next Steps
 
-- [x] Frontend deployed to Codeberg Pages (`pages` branch live; `307 → www.sprout-scout.at` confirmed)
-- [ ] DNS for `sprout-scout.at` (registrar panel access pending)
-- [x] Backend deployed to Scaleway Serverless Containers (`fr-par`); cache writes verified against Scaleway Object Storage; `/api/restaurants` returns 200 over the auto-assigned `*.functions.fnc.fr-par.scw.cloud` URL
-- [ ] Browser smoke test against the live origin once DNS is wired and `api.sprout-scout.at` resolves
+- [x] Frontend deployed to Codeberg Pages (`pages` branch live; serving <https://sprout-scout.at/>)
+- [x] DNS for `sprout-scout.at` (easyname; apex A/AAAA + apex TXT for Codeberg owner-lookup, `www` CNAME to project-site target, `api` CNAME to Scaleway container)
+- [x] Backend deployed to Scaleway Serverless Containers (`fr-par`); cache writes verified against Scaleway Object Storage; `api.sprout-scout.at` answering with Let's Encrypt cert
+- [x] Browser smoke test against the live origin (zip search, "Near me", Impressum + Privacy modals, OSM attribution)
 
 ---
 
@@ -210,20 +210,28 @@ content from a `pages` branch (or a repo named `pages`).
 
 **3. Bake `.domains` into every build.** In the served output, Codeberg
 looks for a plain-text file named `.domains` listing the custom domains
-you want it to serve. Put it in `frontend/public/.domains` so the
-Angular build copies it into `dist/frontend/browser/` automatically:
+you want it to serve. The first line is the canonical hostname; others
+redirect to it. Put it in `frontend/public/.domains` so the Angular
+build copies it into `dist/frontend/browser/` automatically:
 ```
-www.sprout-scout.at
 sprout-scout.at
+www.sprout-scout.at
 ```
-*(Remove the apex line if you only want `www`.)*
 
-**4. DNS records** at your registrar for `sprout-scout.at`:
-- `CNAME` `www` → `<your-user>.codeberg.page`
-- `A` / `AAAA` for the apex `sprout-scout.at` → Codeberg's published IPs
-  (see [their docs](https://docs.codeberg.org/codeberg-pages/custom-domain/)
-  — IPs may change over time, so consult the docs rather than copying a
-  value here).
+**4. DNS records** at your registrar for `sprout-scout.at`. Codeberg
+identifies the owner of a custom domain by following the CNAME / TXT
+record back to the user/repo's pages URL — get any of these wrong and
+the pages-server returns `424 Failed Dependency` *"could not obtain
+repo owner from custom domain"*.
+
+| Subdomain | Type | Value | Why |
+|-----------|------|-------|-----|
+| *(empty)* | `A` | Codeberg's published IPv4 (currently `217.197.84.141`, [check docs](https://docs.codeberg.org/codeberg-pages/using-custom-domain/)) | Apex traffic |
+| *(empty)* | `AAAA` | Codeberg's published IPv6 (currently `2a0a:4580:103f:c0de::2`) | Apex IPv6 |
+| *(empty)* | `TXT` | `sprout-scout.<your-user>.codeberg.page` | Required for apex — pages-server can't follow a CNAME from the apex (DNS forbids it) so it reads this TXT to figure out which user/repo serves the apex |
+| `www` | `CNAME` | `sprout-scout.<your-user>.codeberg.page.` | Project-site format. **Not** `<your-user>.codeberg.page` — that's the personal-site format and pages-server won't resolve owner for project repos |
+
+The `sprout-scout.<your-user>.codeberg.page` form is `[[branch.]repo.]user.codeberg.page` — Codeberg auto-discovers the `pages` branch, so the branch prefix isn't needed.
 
 **5. Set the deploy remote** (used by the deploy script):
 ```powershell
