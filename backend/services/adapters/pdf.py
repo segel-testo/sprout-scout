@@ -15,22 +15,23 @@ PDF_VIEWER_PARAMS = ("file", "url", "src")
 MAX_PDF_BYTES = 10 * 1024 * 1024
 
 
-def collect_pdf_urls(html: str, base_url: str) -> list[str]:
-    soup = BeautifulSoup(html, "html.parser")
+_PDF_ATTR_BY_TAG = {"a": "href", "iframe": "src", "object": "data", "embed": "src"}
+
+
+def collect_pdf_urls(soup: BeautifulSoup, base_url: str) -> list[str]:
     candidates: list[str] = []
 
-    for tag, attr in (("a", "href"), ("iframe", "src"), ("object", "data"), ("embed", "src")):
-        for el in soup.find_all(tag):
-            value = el.get(attr)
-            if not value:
-                continue
-            absolute = urljoin(base_url, value)
-            if _looks_like_pdf_url(absolute):
-                candidates.append(absolute)
-                continue
-            extracted = _extract_pdf_from_viewer(absolute)
-            if extracted:
-                candidates.append(extracted)
+    for el in soup.find_all(list(_PDF_ATTR_BY_TAG)):
+        value = el.get(_PDF_ATTR_BY_TAG[el.name])
+        if not value:
+            continue
+        absolute = urljoin(base_url, value)
+        if _looks_like_pdf_url(absolute):
+            candidates.append(absolute)
+            continue
+        extracted = _extract_pdf_from_viewer(absolute)
+        if extracted:
+            candidates.append(extracted)
 
     seen = set()
     deduped = []
@@ -57,9 +58,9 @@ def _extract_pdf_from_viewer(url: str) -> str | None:
     return None
 
 
-async def scan(html: str, base_url: str, client: httpx.AsyncClient) -> list[dict]:
+async def scan(soup: BeautifulSoup, base_url: str, client: httpx.AsyncClient) -> list[dict]:
     dishes: list[dict] = []
-    for pdf_url in collect_pdf_urls(html, base_url):
+    for pdf_url in collect_pdf_urls(soup, base_url):
         try:
             content = await _fetch_pdf(pdf_url, client)
         except Exception:

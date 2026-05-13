@@ -11,8 +11,7 @@ def is_foodora_url(url: str) -> bool:
     return host.endswith("foodora.at") or host.endswith("foodora.com") or host.endswith("mjam.net")
 
 
-def find_foodora_link(html: str) -> str | None:
-    soup = BeautifulSoup(html, "html.parser")
+def find_foodora_link(soup: BeautifulSoup) -> str | None:
     for a in soup.find_all("a", href=True):
         if is_foodora_url(a["href"]):
             return a["href"]

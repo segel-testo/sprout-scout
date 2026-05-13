@@ -5,9 +5,9 @@ import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from services.cache import get_cached, set_cached
+from services.cache import aget_cached, aset_cached
 from services.overpass import FOOD_AMENITIES, fetch_restaurants, fetch_restaurants_by_radius
-from services.scanner import scan_restaurant
+from services.scanner import make_client, scan_restaurant
 
 router = APIRouter()
 
@@ -52,27 +52,27 @@ UPSTREAM_UNAVAILABLE = "The restaurant directory is temporarily unavailable. Ple
 
 async def _load_restaurants(zip_code: str, country: str) -> list[dict]:
     cache_key = f"{country}_{zip_code}"
-    cached = get_cached(cache_key)
+    cached = await aget_cached(cache_key)
     if cached:
         return cached["restaurants"]
     try:
         restaurants = await fetch_restaurants(zip_code)
     except (httpx.HTTPStatusError, httpx.RequestError) as e:
         raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE) from e
-    set_cached(cache_key, {"zip_code": zip_code, "country": country, "restaurants": restaurants})
+    await aset_cached(cache_key, {"zip_code": zip_code, "country": country, "restaurants": restaurants})
     return restaurants
 
 
 async def _load_restaurants_by_radius(lat: float, lon: float, radius: int) -> list[dict]:
     cache_key = f"AT_radius_{round(lat, 3)}_{round(lon, 3)}_{radius}"
-    cached = get_cached(cache_key)
+    cached = await aget_cached(cache_key)
     if cached:
         return cached["restaurants"]
     try:
         restaurants = await fetch_restaurants_by_radius(lat, lon, radius)
     except (httpx.HTTPStatusError, httpx.RequestError) as e:
         raise HTTPException(status_code=503, detail=UPSTREAM_UNAVAILABLE) from e
-    set_cached(cache_key, {"lat": lat, "lon": lon, "radius": radius, "restaurants": restaurants})
+    await aset_cached(cache_key, {"lat": lat, "lon": lon, "radius": radius, "restaurants": restaurants})
     return restaurants
 
 
@@ -134,45 +134,46 @@ def _stream_scan(restaurants: list[dict], request: Request) -> StreamingResponse
 
         semaphore = asyncio.Semaphore(SCAN_CONCURRENCY)
 
-        async def scan_one(r):
-            async with semaphore:
-                try:
-                    return ("ok", r, await asyncio.wait_for(
-                        scan_restaurant(r["id"], r.get("website", ""), r),
-                        timeout=SCAN_PER_RESTAURANT_TIMEOUT,
-                    ))
-                except asyncio.CancelledError:
-                    raise
-                except Exception as e:
-                    return ("error", r, str(e))
+        async with make_client() as client:
+            async def scan_one(r):
+                async with semaphore:
+                    try:
+                        return ("ok", r, await asyncio.wait_for(
+                            scan_restaurant(r["id"], r.get("website", ""), r, client=client),
+                            timeout=SCAN_PER_RESTAURANT_TIMEOUT,
+                        ))
+                    except asyncio.CancelledError:
+                        raise
+                    except Exception as e:
+                        return ("error", r, str(e))
 
-        pending = {asyncio.create_task(scan_one(r)) for r in batch}
-        scanned = 0
-        try:
-            while pending:
-                if await request.is_disconnected():
-                    break
-                done, pending = await asyncio.wait(
-                    pending,
-                    timeout=SSE_KEEPALIVE_INTERVAL,
-                    return_when=asyncio.FIRST_COMPLETED,
-                )
-                if not done:
-                    yield ": keepalive\n\n"
-                    continue
-                for task in done:
-                    kind, r, payload = await task
-                    scanned += 1
-                    if kind == "ok" and payload.get("dishes"):
-                        yield _sse("restaurant", {"restaurant": r, "scan": payload})
-                    elif kind == "error":
-                        yield _sse("error", {"restaurant_id": r["id"], "reason": payload})
-                    yield _sse("progress", {"scanned": scanned, "total": total})
-            yield _sse("done", {"scanned": scanned, "total": total})
-        finally:
-            for t in pending:
-                if not t.done():
-                    t.cancel()
+            pending = {asyncio.create_task(scan_one(r)) for r in batch}
+            scanned = 0
+            try:
+                while pending:
+                    if await request.is_disconnected():
+                        break
+                    done, pending = await asyncio.wait(
+                        pending,
+                        timeout=SSE_KEEPALIVE_INTERVAL,
+                        return_when=asyncio.FIRST_COMPLETED,
+                    )
+                    if not done:
+                        yield ": keepalive\n\n"
+                        continue
+                    for task in done:
+                        kind, r, payload = await task
+                        scanned += 1
+                        if kind == "ok" and payload.get("dishes"):
+                            yield _sse("restaurant", {"restaurant": r, "scan": payload})
+                        elif kind == "error":
+                            yield _sse("error", {"restaurant_id": r["id"], "reason": payload})
+                        yield _sse("progress", {"scanned": scanned, "total": total})
+                yield _sse("done", {"scanned": scanned, "total": total})
+            finally:
+                for t in pending:
+                    if not t.done():
+                        t.cancel()
 
     return StreamingResponse(
         event_stream(),

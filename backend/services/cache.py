@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 import os
@@ -74,3 +75,19 @@ def get_namespaced(namespace: str, key: str):
 
 def set_namespaced(namespace: str, key: str, payload):
     set_cached(f"{namespace}__{key}", payload)
+
+
+async def aget_cached(key: str):
+    return await asyncio.to_thread(get_cached, key)
+
+
+async def aset_cached(key: str, payload) -> None:
+    await asyncio.to_thread(set_cached, key, payload)
+
+
+async def aget_namespaced(namespace: str, key: str):
+    return await asyncio.to_thread(get_namespaced, namespace, key)
+
+
+async def aset_namespaced(namespace: str, key: str, payload) -> None:
+    await asyncio.to_thread(set_namespaced, namespace, key, payload)

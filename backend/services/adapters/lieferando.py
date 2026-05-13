@@ -11,8 +11,7 @@ def is_lieferando_url(url: str) -> bool:
     return host.endswith("lieferando.at") or host.endswith("lieferando.de") or host.endswith("takeaway.com")
 
 
-def find_lieferando_link(html: str) -> str | None:
-    soup = BeautifulSoup(html, "html.parser")
+def find_lieferando_link(soup: BeautifulSoup) -> str | None:
     for a in soup.find_all("a", href=True):
         if is_lieferando_url(a["href"]):
             return a["href"]

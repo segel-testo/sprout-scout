@@ -1,7 +1,6 @@
 import re
 from urllib.parse import urljoin, urlparse
 
-import httpx
 from bs4 import BeautifulSoup
 
 from services.extractor import extract_vegan_dishes
@@ -14,16 +13,11 @@ MENU_LINK_PATTERN = re.compile(
 MAX_CRAWL_LINKS = 4
 
 
-async def scan(html: str, base_url: str, client: httpx.AsyncClient) -> list[dict]:
-    soup = BeautifulSoup(html, "html.parser")
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-    text = soup.get_text(separator="\n")
+async def scan(text: str, base_url: str) -> list[dict]:
     return extract_vegan_dishes(text, source=base_url)
 
 
-def find_menu_links(html: str, base_url: str) -> list[str]:
-    soup = BeautifulSoup(html, "html.parser")
+def find_menu_links(soup: BeautifulSoup, base_url: str) -> list[str]:
     base_host = urlparse(base_url).netloc
     base_norm = base_url.split("#")[0].rstrip("/")
     seen: set[str] = set()
