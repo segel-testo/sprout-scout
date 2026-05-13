@@ -1,3 +1,4 @@
+import asyncio
 import io
 import re
 from urllib.parse import urljoin, urlparse, parse_qs, unquote
@@ -11,6 +12,7 @@ from services.safe_fetch import safe_get, safe_head
 
 
 PDF_VIEWER_PARAMS = ("file", "url", "src")
+MAX_PDF_BYTES = 10 * 1024 * 1024
 
 
 def collect_pdf_urls(html: str, base_url: str) -> list[str]:
@@ -63,7 +65,7 @@ async def scan(html: str, base_url: str, client: httpx.AsyncClient) -> list[dict
         except Exception:
             continue
         if content:
-            dishes += _scan_pdf_bytes(content, source=pdf_url)
+            dishes += await asyncio.to_thread(_scan_pdf_bytes, content, pdf_url)
     return dishes
 
 
@@ -74,7 +76,7 @@ async def scan_url(url: str, client: httpx.AsyncClient) -> list[dict]:
         return []
     if not content:
         return []
-    return _scan_pdf_bytes(content, source=url)
+    return await asyncio.to_thread(_scan_pdf_bytes, content, url)
 
 
 async def _fetch_pdf(url: str, client: httpx.AsyncClient) -> bytes | None:
@@ -85,16 +87,29 @@ async def _fetch_pdf(url: str, client: httpx.AsyncClient) -> bytes | None:
         content_type = head.headers.get("content-type", "").lower()
         if "pdf" not in content_type:
             return None
+        if _content_length_over_cap(head):
+            return None
     response = await safe_get(client, url)
     if response is None or response.status_code >= 400:
         return None
     if "pdf" not in response.headers.get("content-type", "").lower() and not _looks_like_pdf_url(url):
         return None
+    if len(response.content) > MAX_PDF_BYTES:
+        return None
     return response.content
 
 
+def _content_length_over_cap(response: httpx.Response) -> bool:
+    raw = response.headers.get("content-length")
+    if not raw:
+        return False
+    try:
+        return int(raw) > MAX_PDF_BYTES
+    except ValueError:
+        return False
+
+
 def _scan_pdf_bytes(content: bytes, source: str) -> list[dict]:
-    dishes: list[dict] = []
     try:
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             full_text = "\n".join((page.extract_text() or "") for page in pdf.pages)

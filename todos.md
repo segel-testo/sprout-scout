@@ -217,6 +217,26 @@ Still open as a follow-up if desired (deferred — separate from launch blockers
 
 ---
 
+## 🔧 Post-launch fixes (2026-05-13)
+
+### ✅ 24. Stuck SSE scan ("Scanning 34/36" hangs for ages) — DONE
+
+**Symptom:** for some zips (e.g. `1200`) the scan progress freezes near the end and only resolves after a long wait — sometimes long enough that the user assumes it failed. Clicking a result card link during the freeze appeared to make the loading state "stick", but that was incidental: the event loop was already blocked.
+
+**Root cause:** `pdfplumber.open(...).extract_text()` in `services/adapters/pdf.py` is synchronous + CPU-bound. Called from inside an async coroutine, it blocks the event loop. While blocked: no progress events emit, no other concurrent scans make I/O progress, and the `asyncio.wait_for(..., timeout=25)` outer wrap is moot — cancellation only fires at `await` checkpoints, and a blocking sync call has none. A single large/awkward PDF in the last batch of 8 was freezing the SSE stream for tens of seconds.
+
+**Fix landed:**
+- `services/adapters/pdf.py`: `_scan_pdf_bytes` is still sync, but now invoked via `asyncio.to_thread(_scan_pdf_bytes, content, url)` from both `scan` and `scan_url`. Parsing now runs off-loop; the rest of the event loop keeps draining I/O and emitting progress.
+- New `MAX_PDF_BYTES = 10 * 1024 * 1024` cap. Belt-and-suspenders: `_fetch_pdf` short-circuits on `content-length` over the cap (during the HEAD probe for non-`.pdf` URLs) and on actual body size after GET. Skips before the parse threadpool is ever touched.
+- `routers/restaurants.SCAN_PER_RESTAURANT_TIMEOUT` lowered 25 → 20 s now that the timeout actually fires against PDF parsing.
+- Integration test (`tests.scan_examples`) still produces the five expected outcomes.
+
+### ✅ 25. Remove cta-nib arrow on Begin scan button — DONE
+
+`search.html`: both Zip-mode and Radius-mode CTAs had a trailing `↗` SVG (`<span class="cta-nib">`) next to the label. Removed from both blocks. `search.scss`: corresponding `.cta-nib` selector + hover translate rule deleted. `.cta-glyph` (the leaf badge on the left) and `.cta-spinner` are unchanged.
+
+---
+
 ## 🔭 v2 backlog (post-launch)
 
 Things deferred until after the v1 public launch. Pick up when there's a reason to.

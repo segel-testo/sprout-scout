@@ -121,7 +121,7 @@ Events emitted:
 - `error` — `{ restaurant_id, reason }` on scan failure
 - `done` — `{ scanned, total }` when the batch is finished
 
-Concurrency: up to 8 scans in flight, 25s timeout per scan, cancels cleanly on client disconnect. Emits a `:keepalive` SSE comment every 15s of idle so proxies don't drop long-running streams.
+Concurrency: up to 8 scans in flight, 20s timeout per scan, cancels cleanly on client disconnect. Emits a `:keepalive` SSE comment every 15s of idle so proxies don't drop long-running streams. PDF parsing runs off-loop via `asyncio.to_thread` so a slow `pdfplumber.extract_text()` can't stall the SSE stream; PDFs over 10 MB are skipped without being parsed.
 
 ### `GET /health`
 Health check.
