@@ -406,23 +406,12 @@
     svg { width: 100%; height: 100%; display: block; }
   }
 
-  .cta-nib {
-    width: 14px;
-    height: 14px;
-    flex: 0 0 auto;
-    color: var(--leaf);
-    transition: transform var(--t-mid) var(--ease);
-
-    svg { width: 100%; height: 100%; display: block; }
-  }
-
   &:hover:not(:disabled) {
     background: var(--forest-deep);
     transform: translateY(-1px);
     box-shadow: var(--shadow-cta-h);
 
     .cta-glyph { transform: scale(1.16) rotate(-6deg); }
-    .cta-nib { transform: translate(3px, -3px); }
   }
 
   &:active:not(:disabled) {

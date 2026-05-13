@@ -85,12 +85,6 @@
         }
         @if (loading()) {
           <span class="cta-spinner" aria-hidden="true"></span>
-        } @else {
-          <span class="cta-nib" aria-hidden="true">
-            <svg viewBox="0 0 14 14">
-              <path d="M1 13 L13 1 M9 1 L13 1 L13 5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
         }
       </button>
     </div>
@@ -163,12 +157,6 @@
         }
         @if (geoStatus() === 'locating' || loading()) {
           <span class="cta-spinner" aria-hidden="true"></span>
-        } @else {
-          <span class="cta-nib" aria-hidden="true">
-            <svg viewBox="0 0 14 14">
-              <path d="M1 13 L13 1 M9 1 L13 1 L13 5" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
         }
       </button>
     </div>
